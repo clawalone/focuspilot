@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
-import 'package:provider/provider.dart';
-import '../services/app_service.dart';
 import 'timer_screen.dart';
 
 class AppLimiterScreen extends StatefulWidget {
@@ -21,26 +19,37 @@ class AppLimiterScreen extends StatefulWidget {
 
 class _AppLimiterScreenState extends State<AppLimiterScreen> {
   final Set<String> _selectedApps = {};
-  // Local state for apps is replaced by getters from service
+  List<AppInfo> _socialApps = [];
+  List<AppInfo> _messengerApps = [];
+  List<AppInfo> _otherApps = [];
+  bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
 
-  // Package lists moved to service
+  // Known package names for categorization
+  final List<String> _socialPackages = [
+    'com.facebook.katana',
+    'com.instagram.android',
+    'com.zhiliaoapp.musically', // TikTok
+    'com.twitter.android',
+    'com.snapchat.android',
+    'com.pinterest',
+    'com.linkedin.android',
+  ];
+
+  final List<String> _messengerPackages = [
+    'org.telegram.messenger',
+    'com.whatsapp',
+    'com.discord',
+    'com.viber.voip',
+    'com.facebook.orca', // Messenger
+    'com.google.android.apps.messaging',
+    'com.skype.raider',
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Apps fetching is now handled by AppService and triggered in previous screen
-    // We just need to ensure we have the data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndLoadApps();
-    });
-  }
-
-  void _checkAndLoadApps() {
-    final appService = Provider.of<AppService>(context, listen: false);
-    if (!appService.isLoaded && !appService.isLoading) {
-      appService.loadApps();
-    }
+    _loadApps();
   }
 
   @override
@@ -49,45 +58,49 @@ class _AppLimiterScreenState extends State<AppLimiterScreen> {
     super.dispose();
   }
 
-  // Helper method to get apps from service
-  List<AppInfo> get _socialApps => Provider.of<AppService>(context).socialApps;
-  List<AppInfo> get _messengerApps =>
-      Provider.of<AppService>(context).messengerApps;
-  List<AppInfo> get _otherApps => Provider.of<AppService>(context).otherApps;
-  bool get _isLoading => Provider.of<AppService>(context).isLoading;
+  Future<void> _loadApps() async {
+    List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
 
-  bool get _isAllSelected {
-    final allApps = _getAllPackages();
-    return allApps.isNotEmpty && _selectedApps.length == allApps.length;
-  }
+    List<AppInfo> social = [];
+    List<AppInfo> messengers = [];
+    List<AppInfo> others = [];
 
-  List<String> _getAllPackages() {
-    return [
-      ..._socialApps.map((a) => a.packageName),
-      ..._messengerApps.map((a) => a.packageName),
-      ..._otherApps.map((a) => a.packageName),
-    ];
-  }
+    for (var app in apps) {
+      final packageName = app.packageName.toLowerCase();
 
-  void _toggleSelectAll() {
-    final appService = Provider.of<AppService>(context, listen: false);
-    final allPackages = [
-      ...appService.socialApps.map((a) => a.packageName),
-      ...appService.messengerApps.map((a) => a.packageName),
-      ...appService.otherApps.map((a) => a.packageName),
-    ];
-
-    setState(() {
-      // Check if all are currently selected
-      bool allSelected =
-          allPackages.isNotEmpty && _selectedApps.length == allPackages.length;
-
-      if (allSelected) {
-        _selectedApps.clear();
-      } else {
-        _selectedApps.addAll(allPackages);
+      // Filter system junk
+      if (packageName.contains('com.android.providers') ||
+          packageName.contains('com.android.vpndialogs') ||
+          packageName.contains('com.android.wallpaper') ||
+          packageName.contains('com.google.android.overlay') ||
+          packageName.contains('android.auto_generated')) {
+        continue;
       }
-    });
+
+      if (_socialPackages.any((p) => packageName.contains(p))) {
+        social.add(app);
+      } else if (_messengerPackages.any((p) => packageName.contains(p))) {
+        messengers.add(app);
+      } else {
+        others.add(app);
+      }
+    }
+
+    // Sort
+    social.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    messengers.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    others.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    if (mounted) {
+      setState(() {
+        _socialApps = social;
+        _messengerApps = messengers;
+        _otherApps = others;
+        _isLoading = false;
+      });
+    }
   }
 
   void _toggleAppSelection(String packageName) {
@@ -128,28 +141,14 @@ class _AppLimiterScreenState extends State<AppLimiterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'select apps to limit',
-                              style: TextStyle(
-                                fontSize: 24, // Reduced slightly to fit button
-                                fontWeight: FontWeight.w400,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _toggleSelectAll,
-                              child: Text(
-                                _isAllSelected ? 'deselect all' : 'select all',
-                                style: const TextStyle(
-                                  // color: AppTheme.primaryColor, // Ensure visibility, maybe use a specific color or default
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'select apps to limit',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight:
+                                FontWeight.w400, // Lighter weight as per image
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(

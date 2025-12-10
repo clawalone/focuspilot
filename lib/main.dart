@@ -6,7 +6,6 @@ import 'screens/home_screen.dart';
 
 import 'package:provider/provider.dart';
 import 'services/settings_service.dart';
-import 'services/app_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,13 +21,7 @@ void main() async {
   themeNotifier.value = settings.getThemeMode();
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: settings),
-        ChangeNotifierProvider(create: (_) => AppService()),
-      ],
-      child: const FocusFlowApp(),
-    ),
+    ChangeNotifierProvider.value(value: settings, child: const FocusFlowApp()),
   );
 }
 

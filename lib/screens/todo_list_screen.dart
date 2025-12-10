@@ -19,8 +19,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
   bool _isLoading = true;
   final TextEditingController _taskController = TextEditingController();
 
-  DateTime? _selectedDate;
-
   @override
   void initState() {
     super.initState();
@@ -40,53 +38,11 @@ class _TodoListScreenState extends State<TodoListScreen> {
     final text = _taskController.text.trim();
     if (text.isEmpty) return;
 
-    final newTodo = Todo(
-      title: text,
-      createdTime: DateTime.now(),
-      dueDate: _selectedDate,
-    );
+    final newTodo = Todo(title: text, createdTime: DateTime.now());
 
     await DatabaseService.instance.createTodo(newTodo);
     _taskController.clear();
-    setState(() {
-      _selectedDate = null;
-    });
     _refreshTodos();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 5)),
-      builder: (context, child) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Theme(
-          data: isDark
-              ? ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: AppTheme.primaryColor,
-                    onPrimary: Colors.white,
-                    surface: Color(0xFF1E1E2C),
-                    onSurface: Colors.white,
-                  ),
-                )
-              : ThemeData.light().copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: AppTheme.primaryColor,
-                    onPrimary: Colors.white,
-                  ),
-                ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
   }
 
   Future<void> _toggleTodo(Todo todo) async {
@@ -207,11 +163,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
-                      padding: const EdgeInsets.only(
-                        left: 20,
-                        right: 8,
-                        top: 8,
-                        bottom: 8,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: isDark
@@ -225,87 +179,21 @@ class _TodoListScreenState extends State<TodoListScreen> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextField(
-                                  controller: _taskController,
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white
-                                        : Colors.black87,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Add a new task...',
-                                    hintStyle: TextStyle(
-                                      color: isDark
-                                          ? Colors.white38
-                                          : Colors.black38,
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  onSubmitted: (_) => _addTodo(),
+                            child: TextField(
+                              controller: _taskController,
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Add a new task...',
+                                hintStyle: TextStyle(
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
                                 ),
-                                if (_selectedDate != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: GestureDetector(
-                                      onTap: _pickDate,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryColor
-                                              .withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              CupertinoIcons.calendar,
-                                              size: 10,
-                                              color: AppTheme.primaryColor,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              DateFormat(
-                                                'MMM d',
-                                              ).format(_selectedDate!),
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.primaryColor,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(
-                                              CupertinoIcons.xmark,
-                                              size: 10,
-                                              color: AppTheme.primaryColor,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _pickDate,
-                            icon: Icon(
-                              CupertinoIcons.calendar,
-                              color: _selectedDate != null
-                                  ? AppTheme.primaryColor
-                                  : (isDark ? Colors.white38 : Colors.black38),
-                              size: 20,
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) => _addTodo(),
                             ),
                           ),
                           IconButton(
@@ -377,14 +265,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
   }
 
   Widget _buildTaskItem(Todo todo, bool isDark) {
-    String? dateText;
-    if (todo.dueDate != null) {
-      dateText = DateFormat('MMM d').format(todo.dueDate!);
-      if (todo.dueDate!.year != DateTime.now().year) {
-        dateText += ', ${todo.dueDate!.year}';
-      }
-    }
-
     return Dismissible(
       key: Key(todo.id.toString()),
       background: Container(
@@ -445,52 +325,22 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   ),
                   const SizedBox(width: 16),
 
-                  // Task Text & Date
+                  // Task Text
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          todo.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            decoration: todo.isCompleted
-                                ? TextDecoration.lineThrough
-                                : null,
-                            decorationColor: isDark
-                                ? Colors.white38
-                                : Colors.black26,
-                            color: todo.isCompleted
-                                ? (isDark ? Colors.white38 : Colors.black38)
-                                : (isDark ? Colors.white : Colors.black87),
-                          ),
-                        ),
-                        if (dateText != null && !todo.isCompleted)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  CupertinoIcons.calendar,
-                                  size: 12,
-                                  color: isDark
-                                      ? Colors.white54
-                                      : Colors.black54,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  dateText,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                    child: Text(
+                      todo.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        decoration: todo.isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
+                        decorationColor: isDark
+                            ? Colors.white38
+                            : Colors.black26,
+                        color: todo.isCompleted
+                            ? (isDark ? Colors.white38 : Colors.black38)
+                            : (isDark ? Colors.white : Colors.black87),
+                      ),
                     ),
                   ),
                 ],

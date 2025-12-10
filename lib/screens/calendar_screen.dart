@@ -3,7 +3,6 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 import '../models/session.dart';
-import '../models/todo.dart';
 import '../theme/app_theme.dart';
 import 'history_screen.dart';
 
@@ -20,7 +19,6 @@ class _CalendarScreenState extends State<CalendarScreen>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, int> _dailyFocusMinutes = {};
-  Map<DateTime, int> _dailyPendingTaskCounts = {};
   bool _isLoading = true;
 
   // Stats
@@ -33,7 +31,6 @@ class _CalendarScreenState extends State<CalendarScreen>
   int _bestDayMinutes = 0;
 
   List<Session> _selectedDaySessions = [];
-  List<Todo> _selectedDayTodos = [];
 
   // Animation
   late AnimationController _controller;
@@ -68,8 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen>
   Future<void> _loadData() async {
     try {
       final sessions = await DatabaseService.instance.readAllSessions();
-      final todos = await DatabaseService.instance.readAllTodos();
-      _processData(sessions, todos);
+      _processSessions(sessions);
 
       // Initialize selected day to today
       final now = DateTime.now();
@@ -89,22 +85,16 @@ class _CalendarScreenState extends State<CalendarScreen>
     final sessions = await DatabaseService.instance.readSessionsForDate(
       selectedDay,
     );
-    final todos = await DatabaseService.instance.readTodosForDate(selectedDay);
     if (!mounted) return;
     setState(() {
       _selectedDay = selectedDay;
       _focusedDay = focusedDay;
       _selectedDaySessions = sessions;
-      _selectedDayTodos = todos;
     });
   }
 
-  void _processData(List<Session> sessions, List<Todo> todos) {
-    debugPrint(
-      'Processing ${sessions.length} sessions and ${todos.length} todos',
-    );
+  void _processSessions(List<Session> sessions) {
     Map<DateTime, int> dailyMinutes = {};
-    Map<DateTime, int> dailyTasks = {};
     int thisMonth = 0;
     int lastMonth = 0;
     int pastYear = 0;
@@ -148,22 +138,6 @@ class _CalendarScreenState extends State<CalendarScreen>
       }
     }
 
-    // Process Tasks for Calendar Dots
-    int pendingWithDate = 0;
-    for (var todo in todos) {
-      if (!todo.isCompleted && todo.dueDate != null) {
-        final date = DateTime(
-          todo.dueDate!.year,
-          todo.dueDate!.month,
-          todo.dueDate!.day,
-        );
-        dailyTasks[date] = (dailyTasks[date] ?? 0) + 1;
-        pendingWithDate++;
-      }
-    }
-    debugPrint('Found $pendingWithDate pending tasks with due dates');
-    debugPrint('Daily Tasks Map keys: ${dailyTasks.keys}');
-
     // Find Best Day
     dailyMinutes.forEach((date, minutes) {
       if (minutes > maxMinutes) {
@@ -174,7 +148,6 @@ class _CalendarScreenState extends State<CalendarScreen>
 
     setState(() {
       _dailyFocusMinutes = dailyMinutes;
-      _dailyPendingTaskCounts = dailyTasks;
       _thisMonthMinutes = thisMonth;
       _lastMonthMinutes = lastMonth;
       _pastYearMinutes = pastYear;
@@ -195,22 +168,13 @@ class _CalendarScreenState extends State<CalendarScreen>
     return '${hours}h ${mins}m';
   }
 
-  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
+  List<int> _getEventsForDay(DateTime day) {
     final date = DateTime(day.year, day.month, day.day);
-    final events = <Map<String, dynamic>>[];
-
     final minutes = _dailyFocusMinutes[date];
     if (minutes != null && minutes > 0) {
-      events.add({'type': 'session', 'value': minutes});
+      return [minutes];
     }
-
-    final taskCount = _dailyPendingTaskCounts[date];
-    if (taskCount != null && taskCount > 0) {
-      events.add({'type': 'task', 'value': taskCount});
-    }
-
-    // debugPrint('Events for $day (key: $date): $events');
-    return events;
+    return [];
   }
 
   @override
@@ -378,67 +342,48 @@ class _CalendarScreenState extends State<CalendarScreen>
                                     },
                                     markerBuilder: (context, date, events) {
                                       if (events.isEmpty) return null;
+                                      final minutes = events.first as int;
+
+                                      // Heatmap Logic
+                                      Color markerColor;
+                                      double size;
+                                      IconData? icon;
+
+                                      if (minutes > 120) {
+                                        markerColor = Colors.orange;
+                                        size = 8;
+                                        icon = Icons.local_fire_department;
+                                      } else if (minutes > 60) {
+                                        markerColor = Colors.deepPurple;
+                                        size = 8;
+                                      } else if (minutes > 30) {
+                                        markerColor = Colors.blue;
+                                        size = 6;
+                                      } else {
+                                        markerColor = Colors.green;
+                                        size = 5;
+                                      }
+
+                                      if (icon != null) {
+                                        // For super high activity, show a tiny fire icon instead of dot
+                                        return Positioned(
+                                          bottom: 1,
+                                          child: Icon(
+                                            icon,
+                                            size: 12,
+                                            color: markerColor,
+                                          ),
+                                        );
+                                      }
 
                                       return Positioned(
-                                        bottom: 2,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: events.map((event) {
-                                              final map =
-                                                  event as Map<String, dynamic>;
-                                              final type =
-                                                  map['type'] as String;
-                                              final value = map['value'] as int;
-
-                                              if (type == 'session') {
-                                                // Session Heatmap Dot
-                                                Color color;
-                                                if (value > 120) {
-                                                  color = Colors.redAccent;
-                                                } else if (value > 60) {
-                                                  color = Colors.deepPurple;
-                                                } else if (value > 30) {
-                                                  color = Colors.blue;
-                                                } else {
-                                                  color = Colors.green;
-                                                }
-                                                return Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 1.5,
-                                                      ),
-                                                  width: 6,
-                                                  height: 6,
-                                                  decoration: BoxDecoration(
-                                                    color: color,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                );
-                                              } else {
-                                                // Task Dot (Orange)
-                                                return Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 1.5,
-                                                      ),
-                                                  width: 6,
-                                                  height: 6,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.orange,
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color: theme
-                                                          .colorScheme
-                                                          .surface,
-                                                      width: 1,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            }).toList(),
+                                        bottom: 5,
+                                        child: Container(
+                                          width: size,
+                                          height: size,
+                                          decoration: BoxDecoration(
+                                            color: markerColor,
+                                            shape: BoxShape.circle,
                                           ),
                                         ),
                                       );
@@ -598,78 +543,6 @@ class _CalendarScreenState extends State<CalendarScreen>
                                       ),
                                     )
                                     .toList(),
-
-                              if (_selectedDayTodos.isNotEmpty) ...[
-                                const SizedBox(height: 32),
-                                Text(
-                                  'Tasks Due',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ..._selectedDayTodos.map((todo) {
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: todo.isCompleted
-                                                ? Colors.green.withOpacity(0.1)
-                                                : Colors.orange.withOpacity(
-                                                    0.1,
-                                                  ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            todo.isCompleted
-                                                ? Icons.check
-                                                : Icons.access_time_filled,
-                                            color: todo.isCompleted
-                                                ? Colors.green
-                                                : Colors.orange,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Text(
-                                            todo.title,
-                                            style: theme.textTheme.bodyLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  decoration: todo.isCompleted
-                                                      ? TextDecoration
-                                                            .lineThrough
-                                                      : null,
-                                                  color: todo.isCompleted
-                                                      ? Colors.grey
-                                                      : theme
-                                                            .textTheme
-                                                            .bodyLarge
-                                                            ?.color,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-                              ],
 
                               const SizedBox(height: 32),
 

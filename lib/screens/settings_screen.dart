@@ -123,19 +123,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            expandedHeight: 120.0,
+            floating: false,
             pinned: true,
             backgroundColor: isDark ? Colors.black : Colors.white,
             elevation: 0,
-            title: Text(
-              'Settings',
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: isDark ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 26,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              title: Text(
+                'Settings',
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            centerTitle: false,
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios,

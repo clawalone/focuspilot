@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import 'app_limiter_screen.dart';
 import '../services/settings_service.dart';
-import '../services/app_service.dart';
 
 class CreatePlanScreen extends StatefulWidget {
   final String? initialCategory;
@@ -25,9 +24,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     super.didChangeDependencies();
     if (_isInit) {
       final settings = Provider.of<SettingsService>(context, listen: false);
-      // Prefetch apps
-      Provider.of<AppService>(context, listen: false).loadApps();
-
       _selectedMinutes = settings.getFocusDuration();
       _scrollController = FixedExtentScrollController(
         initialItem: _selectedMinutes - 1,
