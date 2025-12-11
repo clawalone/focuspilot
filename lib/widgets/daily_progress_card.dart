@@ -2,41 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../services/database_service.dart';
+
 import '../services/settings_service.dart';
+import '../models/badge_data.dart';
 
-class DailyProgressCard extends StatefulWidget {
-  const DailyProgressCard({super.key});
+class DailyProgressCard extends StatelessWidget {
+  final int totalMinutes;
+  final int streak;
+  final List<BadgeData> badges;
+  final bool isLoading;
+  final GlobalKey? keyTarget; // Renaming to avoid conflict with widget.key
 
-  @override
-  State<DailyProgressCard> createState() => _DailyProgressCardState();
-}
-
-class _DailyProgressCardState extends State<DailyProgressCard> {
-  int _totalMinutes = 0;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDailyStats();
-  }
-
-  Future<void> _loadDailyStats() async {
-    final today = DateTime.now();
-    final sessions = await DatabaseService.instance.readSessionsForDate(today);
-    int totalSeconds = 0;
-    for (var session in sessions) {
-      totalSeconds += session.duration;
-    }
-
-    if (mounted) {
-      setState(() {
-        _totalMinutes = totalSeconds ~/ 60;
-        _isLoading = false;
-      });
-    }
-  }
+  const DailyProgressCard({
+    super.key,
+    this.totalMinutes = 0,
+    this.streak = 0,
+    this.badges = const [],
+    this.isLoading = false,
+    this.keyTarget,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +31,10 @@ class _DailyProgressCardState extends State<DailyProgressCard> {
     final settings = Provider.of<SettingsService>(context);
     final dailyGoal = settings.getDailyGoal();
 
-    final progress = (_totalMinutes / dailyGoal).clamp(0.0, 1.0);
+    final progress = (totalMinutes / dailyGoal).clamp(0.0, 1.0);
 
     return Container(
+      key: keyTarget,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: isDark
@@ -89,7 +74,7 @@ class _DailyProgressCardState extends State<DailyProgressCard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${_totalMinutes}m',
+                  '${totalMinutes}m',
                   style: theme.textTheme.displayMedium?.copyWith(
                     color: Colors.white,
                     fontSize: 32,
@@ -103,23 +88,73 @@ class _DailyProgressCardState extends State<DailyProgressCard> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    progress >= 1.0 ? 'Goal Reached! 🎉' : 'Keep going! 🔥',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    if (streak > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🔥', style: TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$streak',
+                              style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        progress >= 1.0 ? 'Goal Reached! 🎉' : 'Keep going!',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (badges.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      ...badges
+                          .where((b) => b.isUnlocked)
+                          .take(3)
+                          .map(
+                            (b) => Padding(
+                              padding: const EdgeInsets.only(right: 4.0),
+                              child: Tooltip(
+                                message: b.title,
+                                child: Icon(
+                                  b.icon,
+                                  size: 16,
+                                  color: b.color.withOpacity(0.9),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ],
+                  ],
                 ),
               ],
             ),

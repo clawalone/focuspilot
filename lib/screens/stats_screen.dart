@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/database_service.dart';
 import '../models/session.dart';
+import '../models/badge_data.dart';
 import '../theme/app_theme.dart';
 import 'sessions_screen.dart';
 
@@ -15,6 +16,7 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen>
     with SingleTickerProviderStateMixin {
   List<Session> _sessions = [];
+  List<BadgeData> _badges = [];
   bool _isLoading = true;
 
   // Stats
@@ -55,6 +57,18 @@ class _StatsScreenState extends State<StatsScreen>
     super.dispose();
   }
 
+  void _calculateBadges(List<Session> sessions) {
+    if (mounted) {
+      setState(() {
+        _badges = BadgeData.calculateBadges(
+          sessions: sessions,
+          streak: _streak,
+          totalMinutes: _totalMinutes, // Ensure this is calculated before
+        );
+      });
+    }
+  }
+
   Future<void> _loadSessions() async {
     try {
       setState(() => _isLoading = true);
@@ -93,6 +107,7 @@ class _StatsScreenState extends State<StatsScreen>
         _categoryMinutes = categoryMinutes;
         _isLoading = false;
       });
+      _calculateBadges(sessions); // Calculate badges
       _controller.forward();
     } catch (e) {
       debugPrint('Error loading sessions: $e');
@@ -100,6 +115,7 @@ class _StatsScreenState extends State<StatsScreen>
         _sessions = [];
         _isLoading = false;
       });
+      _calculateBadges([]); // Calculate empty badges
     }
   }
 
@@ -425,53 +441,28 @@ class _StatsScreenState extends State<StatsScreen>
                                           ),
                                     ),
                                     const SizedBox(height: 16),
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      clipBehavior: Clip.none,
-                                      child: Row(
-                                        children: [
-                                          _buildPremiumBadge(
-                                            theme,
-                                            'First Step',
-                                            Icons.flag,
-                                            _totalMinutes > 0,
-                                            Colors.blue,
-                                            isDark,
-                                            0,
+                                    _badges.isEmpty
+                                        ? const SizedBox()
+                                        : GridView.builder(
+                                            shrinkWrap: true,
+                                            physics:
+                                                const NeverScrollableScrollPhysics(),
+                                            gridDelegate:
+                                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount: 3,
+                                                  crossAxisSpacing: 12,
+                                                  mainAxisSpacing: 12,
+                                                  childAspectRatio: 0.85,
+                                                ),
+                                            itemCount: _badges.length,
+                                            itemBuilder: (context, index) {
+                                              return _buildNewBadgeCard(
+                                                theme,
+                                                _badges[index],
+                                                index * 100,
+                                              );
+                                            },
                                           ),
-                                          const SizedBox(width: 16),
-                                          _buildPremiumBadge(
-                                            theme,
-                                            'On Fire',
-                                            Icons.local_fire_department,
-                                            _streak >= 3,
-                                            Colors.orange,
-                                            isDark,
-                                            100,
-                                          ),
-                                          const SizedBox(width: 16),
-                                          _buildPremiumBadge(
-                                            theme,
-                                            'Zen Master',
-                                            Icons.self_improvement,
-                                            _totalMinutes >= 1000,
-                                            Colors.purple,
-                                            isDark,
-                                            200,
-                                          ),
-                                          const SizedBox(width: 16),
-                                          _buildPremiumBadge(
-                                            theme,
-                                            'Night Owl',
-                                            Icons.nightlight_round,
-                                            false,
-                                            Colors.indigo,
-                                            isDark,
-                                            300,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                     const SizedBox(height: 40),
                                   ],
                                 ),
@@ -736,15 +727,7 @@ class _StatsScreenState extends State<StatsScreen>
     );
   }
 
-  Widget _buildPremiumBadge(
-    ThemeData theme,
-    String title,
-    IconData icon,
-    bool unlocked,
-    Color color,
-    bool isDark,
-    int delay,
-  ) {
+  Widget _buildNewBadgeCard(ThemeData theme, BadgeData badge, int delay) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 600 + delay),
@@ -752,67 +735,157 @@ class _StatsScreenState extends State<StatsScreen>
       builder: (context, value, child) {
         return Transform.scale(
           scale: value,
-          child: Container(
-            width: 100,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: unlocked
-                    ? [color.withOpacity(0.2), color.withOpacity(0.05)]
-                    : [
-                        Colors.grey.withOpacity(0.1),
-                        Colors.grey.withOpacity(0.05),
+          child: GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  child: Container(
+                    width: 300,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: badge.isUnlocked
+                            ? badge.color.withOpacity(0.5)
+                            : Colors.white10,
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
                       ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: unlocked ? color.withOpacity(0.3) : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: unlocked
-                        ? color.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    boxShadow: unlocked
-                        ? [
-                            BoxShadow(
-                              color: color.withOpacity(0.3),
-                              blurRadius: 10,
-                              spreadRadius: 2,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              _buildBadge(badge, size: 120, showTitle: false),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          badge.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          badge.description,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badge.isUnlocked
+                                ? badge.color.withOpacity(0.2)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                              color: badge.isUnlocked
+                                  ? badge.color
+                                  : Colors.white24,
                             ),
-                          ]
-                        : [],
-                  ),
-                  child: Icon(
-                    icon,
-                    color: unlocked ? color : Colors.grey,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: unlocked
-                        ? (isDark ? Colors.white : Colors.black87)
-                        : Colors.grey,
+                          ),
+                          child: Text(
+                            badge.isUnlocked ? 'UNLOCKED' : 'LOCKED',
+                            style: TextStyle(
+                              color: badge.isUnlocked
+                                  ? badge.color
+                                  : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              );
+            },
+            child: _buildBadge(badge, size: 100, showTitle: false),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBadge(
+    BadgeData badge, {
+    required double size,
+    bool showTitle = false,
+  }) {
+    final isUnlocked = badge.isUnlocked;
+    final baseColor = badge.color;
+
+    // Metallic Rim Colors
+    final rimColors = isUnlocked
+        ? [const Color(0xFFFFD700), const Color(0xFFDAA520)] // Gold
+        : [Colors.grey.shade400, Colors.grey.shade600]; // Silver/Grey
+
+    // Badge Surface Colors
+    final surfaceColor = isUnlocked
+        ? baseColor
+        : const Color(0xFF424242); // Matte Dark Grey
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CustomPaint(
+          size: Size(size, size),
+          painter: _BadgePainter(
+            rimColors: rimColors,
+            surfaceColor: surfaceColor,
+            isUnlocked: isUnlocked,
+          ),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Center(
+              child: Icon(
+                badge.icon,
+                size: size * 0.4,
+                color: isUnlocked ? Colors.white : Colors.white38,
+              ),
+            ),
+          ),
+        ),
+        if (showTitle) ...[
+          const SizedBox(height: 12),
+          Text(
+            badge.title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -846,7 +919,7 @@ class _StatsScreenState extends State<StatsScreen>
                 '${entry.key} ${entry.value}m',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: color, // Match text color to category for cleaner look
+                  color: color,
                 ),
               ),
             ],
@@ -873,5 +946,73 @@ class _Countup extends StatelessWidget {
         return Text('$val', style: style);
       },
     );
+  }
+}
+
+class _BadgePainter extends CustomPainter {
+  final List<Color> rimColors;
+  final Color surfaceColor;
+  final bool isUnlocked;
+
+  _BadgePainter({
+    required this.rimColors,
+    required this.surfaceColor,
+    required this.isUnlocked,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path();
+
+    // Classic Shield Shape
+    path.moveTo(0, 0);
+    path.lineTo(w, 0); // Top flat
+    path.lineTo(w, h * 0.6); // Right side down
+
+    // Bottom curve to point
+    path.quadraticBezierTo(w, h * 0.9, w * 0.5, h);
+    path.quadraticBezierTo(0, h * 0.9, 0, h * 0.6);
+
+    path.close();
+
+    // 1. Draw Shadow
+    canvas.drawShadow(path, Colors.black.withOpacity(0.4), 8.0, true);
+
+    // 2. Draw Inner Surface (Fill)
+    final fillPaint = Paint()..style = PaintingStyle.fill;
+
+    if (isUnlocked) {
+      fillPaint.shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [surfaceColor.withOpacity(0.9), surfaceColor],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    } else {
+      fillPaint.color = surfaceColor;
+    }
+    canvas.drawPath(path, fillPaint);
+
+    // 3. Draw Rim (Stroke)
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth =
+          w *
+          0.08 // 8% of size as border
+      ..strokeJoin = StrokeJoin.round
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: rimColors,
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BadgePainter oldDelegate) {
+    return oldDelegate.surfaceColor != surfaceColor ||
+        oldDelegate.isUnlocked != oldDelegate.isUnlocked;
   }
 }

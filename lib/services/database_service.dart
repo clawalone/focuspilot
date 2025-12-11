@@ -1,6 +1,7 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
 
@@ -25,7 +26,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -58,6 +59,18 @@ CREATE TABLE $tableTodos (
 ''');
       }
     }
+
+    // Migration for Todos Due Date (Version 4)
+    if (oldVersion < 4) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN dueDate TEXT NULL',
+        );
+      } catch (e) {
+        // Ignore if column exists
+        debugPrint("Col dueDate likely exists or update failed: $e");
+      }
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -81,7 +94,8 @@ CREATE TABLE $tableTodos (
   id $idType, 
   title $textType,
   isCompleted $boolType,
-  createdTime $textType
+  createdTime $textType,
+  dueDate $textType
   )
 ''');
   }
@@ -134,6 +148,21 @@ CREATE TABLE $tableTodos (
     return result.map((json) => Session.fromMap(json)).toList();
   }
 
+  Future<Session?> getLastSession() async {
+    final db = await instance.database;
+    final result = await db.query(
+      'sessions',
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      return Session.fromMap(result.first);
+    } else {
+      return null;
+    }
+  }
+
   Future<void> clearAllSessions() async {
     final db = await instance.database;
     await db.delete('sessions');
@@ -152,7 +181,7 @@ CREATE TABLE $tableTodos (
 
     final maps = await db.query(
       tableTodos,
-      columns: ['id', 'title', 'isCompleted', 'createdTime'],
+      columns: ['id', 'title', 'isCompleted', 'createdTime', 'dueDate'],
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -166,8 +195,28 @@ CREATE TABLE $tableTodos (
 
   Future<List<Todo>> readAllTodos() async {
     final db = await instance.database;
-    final orderBy = 'createdTime DESC';
+    // Sort logic: Uncompleted first, then by Due Date (soonest first), then by Created Time
+    // CASE WHEN isCompleted = 0 THEN 0 ELSE 1 END -> Puts uncompleted (0) before completed (1)
+    // CASE WHEN dueDate IS NULL THEN 1 ELSE 0 END -> Puts tasks with due dates before those without
+    // dueDate ASC -> Soonest due dates first
+    // createdTime DESC -> Newest created first (fallback)
+    final orderBy =
+        'isCompleted ASC, CASE WHEN dueDate IS NULL THEN 1 ELSE 0 END, dueDate ASC, createdTime DESC';
     final result = await db.query(tableTodos, orderBy: orderBy);
+
+    return result.map((json) => Todo.fromMap(json)).toList();
+  }
+
+  Future<List<Todo>> readTodosForDate(DateTime date) async {
+    final db = await instance.database;
+    final dateStr = date.toIso8601String().split('T')[0];
+
+    final result = await db.query(
+      tableTodos,
+      where: 'dueDate LIKE ?',
+      whereArgs: ['$dateStr%'],
+      orderBy: 'isCompleted ASC, createdTime DESC',
+    );
 
     return result.map((json) => Todo.fromMap(json)).toList();
   }
