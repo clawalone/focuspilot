@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
 
 import 'history_screen.dart';
+import '../widgets/animated_background.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -304,29 +305,10 @@ class _CalendarScreenState extends State<CalendarScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          // Mesh-like subtle radial gradients (Matches StatsScreen)
-          color: isDark ? const Color(0xFF0F0F1E) : const Color(0xFFF8F9FE),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    const Color(0xFF1A1A2E),
-                    const Color(0xFF0F0F1E),
-                    const Color(0xFF16162C),
-                  ]
-                : [
-                    const Color(0xFFFFFFFF),
-                    const Color(0xFFF0F4FF),
-                    const Color(0xFFE8EAF6),
-                  ],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      body: AnimatedBackground(
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())

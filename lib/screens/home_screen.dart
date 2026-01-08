@@ -17,6 +17,7 @@ import '../widgets/premium_tutorial_card.dart';
 import '../widgets/quick_tasks_card.dart';
 import '../widgets/last_session_card.dart';
 import 'todo_list_screen.dart';
+import '../widgets/animated_background.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -291,157 +292,159 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false, // Allow content to flow behind nav bar
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Fixed Header
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 24.0,
+      backgroundColor: Colors.transparent,
+      body: AnimatedBackground(
+        child: SafeArea(
+          bottom: false, // Allow content to flow behind nav bar
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Fixed Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 24.0,
+                ),
+                child: Column(
+                  children: [
+                    HomeHeader(key: _headerKey, dateKey: _calendarKey),
+                    const SizedBox(height: 2), // The gap user requested
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  HomeHeader(key: _headerKey, dateKey: _calendarKey),
-                  const SizedBox(height: 2), // The gap user requested
-                ],
-              ),
-            ),
 
-            // Scrollable Content
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  24.0,
-                  0,
-                  24.0,
-                  120.0,
-                ), // No top padding, only 24 horizontal
-                children: [
-                  // Daily Insight Card
-                  DailyProgressCard(
-                    keyTarget: _dailyCardKey,
-                    totalMinutes: _dailyMinutes,
-                    streak: _streak,
-                    badges: _badges,
-                    isLoading: _isLoading,
-                  ),
-                  const SizedBox(height: 24),
+              // Scrollable Content
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    24.0,
+                    0,
+                    24.0,
+                    120.0,
+                  ), // No top padding, only 24 horizontal
+                  children: [
+                    // Daily Insight Card
+                    DailyProgressCard(
+                      keyTarget: _dailyCardKey,
+                      totalMinutes: _dailyMinutes,
+                      streak: _streak,
+                      badges: _badges,
+                      isLoading: _isLoading,
+                    ),
+                    const SizedBox(height: 24),
 
-                  // Section Title
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Start a Session',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                    // Section Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Start a Session',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CreatePlanScreen(),
+                        IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CreatePlanScreen(),
+                              ),
+                            );
+                          },
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                          );
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: AppTheme.primaryColor,
+                            child: const Icon(
+                              Icons.add,
+                              color: AppTheme.primaryColor,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Premium Grid
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 1.0,
-                    children: [
-                      _buildCategoryCard(
-                        context,
-                        key: _startSessionKey,
-                        title: 'Work',
-                        subtitle: 'Focus & Grind',
-                        icon: CupertinoIcons.briefcase,
-                        gradientColors: const [
-                          Color(0xFF4481EB),
-                          Color(0xFF04BEFE),
-                        ], // Blue
-                        onTap: () => _navigateToTimer(context, 'work'),
-                      ),
-                      _buildCategoryCard(
-                        context,
-                        title: 'Personal',
-                        subtitle: 'Me Time',
-                        icon: CupertinoIcons.person,
-                        gradientColors: const [
-                          Color(0xFF9F44D3),
-                          Color(0xFFA66BE2),
-                        ], // Purple
-                        onTap: () => _navigateToTimer(context, 'personal'),
-                      ),
-                      _buildCategoryCard(
-                        context,
-                        title: 'Reading',
-                        subtitle: 'Learn & Grow',
-                        icon: CupertinoIcons.book,
-                        gradientColors: const [
-                          Color(0xFFFF9A44),
-                          Color(0xFFFC6076),
-                        ], // Orange
-                        onTap: () => _navigateToTimer(context, 'reading'),
-                      ),
-                      _buildCategoryCard(
-                        context,
-                        title: 'Sleep',
-                        subtitle: 'Rest & Recover',
-                        icon: CupertinoIcons.moon,
-                        gradientColors: const [
-                          Color(0xFF1A1B2E),
-                          Color(0xFF4A148C),
-                        ], // Dark Blue/Purple
-                        onTap: () => _navigateToTimer(context, 'sleep'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                    // Premium Grid
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.0,
+                      children: [
+                        _buildCategoryCard(
+                          context,
+                          key: _startSessionKey,
+                          title: 'Work',
+                          subtitle: 'Focus & Grind',
+                          icon: CupertinoIcons.briefcase,
+                          gradientColors: const [
+                            Color(0xFF4481EB),
+                            Color(0xFF04BEFE),
+                          ], // Blue
+                          onTap: () => _navigateToTimer(context, 'work'),
+                        ),
+                        _buildCategoryCard(
+                          context,
+                          title: 'Personal',
+                          subtitle: 'Me Time',
+                          icon: CupertinoIcons.person,
+                          gradientColors: const [
+                            Color(0xFF9F44D3),
+                            Color(0xFFA66BE2),
+                          ], // Purple
+                          onTap: () => _navigateToTimer(context, 'personal'),
+                        ),
+                        _buildCategoryCard(
+                          context,
+                          title: 'Reading',
+                          subtitle: 'Learn & Grow',
+                          icon: CupertinoIcons.book,
+                          gradientColors: const [
+                            Color(0xFFFF9A44),
+                            Color(0xFFFC6076),
+                          ], // Orange
+                          onTap: () => _navigateToTimer(context, 'reading'),
+                        ),
+                        _buildCategoryCard(
+                          context,
+                          title: 'Sleep',
+                          subtitle: 'Rest & Recover',
+                          icon: CupertinoIcons.moon,
+                          gradientColors: const [
+                            Color(0xFF1A1B2E),
+                            Color(0xFF4A148C),
+                          ], // Dark Blue/Purple
+                          onTap: () => _navigateToTimer(context, 'sleep'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  // Last Session Card
-                  LastSessionCard(
-                    lastSession: _lastSession,
-                    isLoading: _isLoading,
-                  ),
-                  const SizedBox(height: 24),
+                    // Last Session Card
+                    LastSessionCard(
+                      lastSession: _lastSession,
+                      isLoading: _isLoading,
+                    ),
+                    const SizedBox(height: 24),
 
-                  QuickTasksCard(
-                    topTasks: _topTasks,
-                    isLoading: _isLoading,
-                    onRefresh: _loadData,
-                  ),
-                ],
+                    QuickTasksCard(
+                      topTasks: _topTasks,
+                      isLoading: _isLoading,
+                      onRefresh: _loadData,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       extendBody: true,

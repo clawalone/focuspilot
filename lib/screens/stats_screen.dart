@@ -5,6 +5,7 @@ import '../models/session.dart';
 import '../models/badge_data.dart';
 import '../theme/app_theme.dart';
 import 'sessions_screen.dart';
+import '../widgets/animated_background.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -222,26 +223,8 @@ class _StatsScreenState extends State<StatsScreen>
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          // Mesh-like subtle radial gradients for a premium feel
-          color: isDark ? const Color(0xFF0F0F1E) : const Color(0xFFF8F9FE),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    const Color(0xFF1A1A2E),
-                    const Color(0xFF0F0F1E),
-                    const Color(0xFF16162C),
-                  ]
-                : [
-                    const Color(0xFFFFFFFF),
-                    const Color(0xFFF0F4FF),
-                    const Color(0xFFE8EAF6),
-                  ],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      body: AnimatedBackground(
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
