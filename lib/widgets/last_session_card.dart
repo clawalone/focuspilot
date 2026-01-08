@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/session.dart';
+import '../theme/app_theme.dart';
 
 class LastSessionCard extends StatelessWidget {
   final Session? lastSession;
@@ -53,74 +55,129 @@ class LastSessionCard extends StatelessWidget {
         ),
 
         // Card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? Colors.white10 : Colors.grey.shade200,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Icon Container
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(session.category).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  _getCategoryIcon(session.category),
-                  color: _getCategoryColor(session.category),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      session.category,
-                      style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
+        isDark
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.statsCardBackground.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '$dateStr • $timeStr',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
+                    child: _buildCardContent(
+                      context,
+                      session,
+                      isDark,
+                      dateStr,
+                      timeStr,
+                      durationMins,
+                    ),
+                  ),
+                ),
+              )
+            : Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
+                child: _buildCardContent(
+                  context,
+                  session,
+                  isDark,
+                  dateStr,
+                  timeStr,
+                  durationMins,
+                ),
               ),
+      ],
+    );
+  }
 
-              // Duration Badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+  Widget _buildCardContent(
+    BuildContext context,
+    Session session,
+    bool isDark,
+    String dateStr,
+    String timeStr,
+    int durationMins,
+  ) {
+    return Row(
+      children: [
+        // Icon Container
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _getCategoryColor(session.category).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            _getCategoryIcon(session.category),
+            color: _getCategoryColor(session.category),
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+
+        // Details
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                session.category,
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${durationMins}m',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '$dateStr • $timeStr',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white38 : Colors.black38,
                 ),
               ),
             ],
+          ),
+        ),
+
+        // Duration Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '${durationMins}m',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
           ),
         ),
       ],

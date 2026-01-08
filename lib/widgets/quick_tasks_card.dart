@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -68,39 +69,49 @@ class QuickTasksCard extends StatelessWidget {
 
         // Task List
         topTasks.isEmpty
-            ? Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        CupertinoIcons.check_mark_circled,
-                        size: 48,
-                        color: isDark ? Colors.white24 : Colors.black12,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        "No upcoming tasks",
-                        style: TextStyle(
-                          color: isDark ? Colors.white38 : Colors.black38,
-                          fontSize: 14,
+            ? (isDark
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.statsCardBackground.withOpacity(
+                              0.7,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(24.0),
+                          child: _buildEmptyState(isDark),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              )
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(24.0),
+                      child: _buildEmptyState(isDark),
+                    ))
             : Column(
                 children: topTasks
                     .map((task) => _buildMiniTaskItem(task, isDark))
@@ -110,56 +121,109 @@ class QuickTasksCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniTaskItem(Todo todo, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        children: [
+          Icon(
+            CupertinoIcons.check_mark_circled,
+            size: 48,
+            color: isDark ? Colors.white24 : Colors.black12,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "No upcoming tasks",
+            style: TextStyle(
+              color: isDark ? Colors.white38 : Colors.black38,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _toggleTask(todo),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
+    );
+  }
+
+  Widget _buildMiniTaskItem(Todo todo, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: isDark
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    shape: BoxShape.circle,
+                    color: AppTheme.statsCardBackground.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isDark ? Colors.white38 : Colors.black26,
-                      width: 2,
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
+                  child: _buildTaskItemContent(todo, isDark),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    todo.title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              ),
+            )
+          : Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: _buildTaskItemContent(todo, isDark),
             ),
+    );
+  }
+
+  Widget _buildTaskItemContent(Todo todo, bool isDark) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _toggleTask(todo),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? Colors.white38 : Colors.black26,
+                    width: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  todo.title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
       ),
