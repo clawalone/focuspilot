@@ -91,24 +91,7 @@ class ReminderService {
     final int? todoId = receivedAction.id;
     if (todoId == null) return;
 
-    if (receivedAction.buttonKeyPressed == 'START_MISSION') {
-      debugPrint('Starting mission for Todo $todoId');
-
-      // Cancel the notification itself
-      await ReminderService().cancelReminder(todoId);
-
-      final todo = await DatabaseService.instance.readTodo(todoId);
-      // Navigate to TimerScreen using the global navigatorKey
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (context) => TimerScreen(
-            category: todo.category,
-            note: todo.title,
-            // Use default focus settings (could also fetch from settings)
-          ),
-        ),
-      );
-    } else if (receivedAction.buttonKeyPressed == 'SNOOZE') {
+    if (receivedAction.buttonKeyPressed == 'SNOOZE') {
       // Reschedule for 10 mins later
       debugPrint('Snoozing Todo $todoId');
       final todo = await DatabaseService.instance.readTodo(todoId);
@@ -209,12 +192,6 @@ class ReminderService {
 
   List<NotificationActionButton> _buildButtons() {
     return [
-      NotificationActionButton(
-        key: 'START_MISSION',
-        label: 'Start Mission',
-        actionType: ActionType.Default,
-        color: Colors.cyan,
-      ),
       NotificationActionButton(
         key: 'SNOOZE',
         label: 'Snooze 10m',
