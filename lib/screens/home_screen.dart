@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../theme/app_theme.dart';
 import '../models/session.dart';
+import '../models/todo.dart';
 import '../models/badge_data.dart';
 import 'create_plan_screen.dart';
 import '../services/database_service.dart';
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _dailyMinutes = 0;
   int _streak = 0;
   List<BadgeData> _badges = [];
+  List<Todo> _topTasks = [];
   bool _isLoading = true;
 
   late TutorialCoachMark _tutorialCoachMark;
@@ -105,12 +107,17 @@ class _HomeScreenState extends State<HomeScreen> {
       totalMinutes: totalAllMinutes,
     );
 
+    // Load Top 3 Uncompleted Tasks
+    final todos = await DatabaseService.instance.readAllTodos();
+    final topTasks = todos.where((t) => !t.isCompleted).take(3).toList();
+
     if (mounted) {
       setState(() {
         _lastSession = session;
         _dailyMinutes = minutes;
         _streak = streak;
         _badges = badges;
+        _topTasks = topTasks;
         _isLoading = false;
       });
     }
@@ -426,7 +433,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  const QuickTasksCard(),
+                  QuickTasksCard(
+                    topTasks: _topTasks,
+                    isLoading: _isLoading,
+                    onRefresh: _loadData,
+                  ),
                 ],
               ),
             ),

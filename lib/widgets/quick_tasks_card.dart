@@ -6,44 +6,27 @@ import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../screens/todo_list_screen.dart';
 
-class QuickTasksCard extends StatefulWidget {
-  const QuickTasksCard({super.key});
+class QuickTasksCard extends StatelessWidget {
+  final List<Todo> topTasks;
+  final bool isLoading;
+  final VoidCallback onRefresh;
 
-  @override
-  State<QuickTasksCard> createState() => _QuickTasksCardState();
-}
-
-class _QuickTasksCardState extends State<QuickTasksCard> {
-  List<Todo> _topTasks = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTasks();
-  }
-
-  Future<void> _loadTasks() async {
-    final todos = await DatabaseService.instance.readAllTodos();
-    final uncompleted = todos.where((t) => !t.isCompleted).take(3).toList();
-
-    if (mounted) {
-      setState(() {
-        _topTasks = uncompleted;
-        _isLoading = false;
-      });
-    }
-  }
+  const QuickTasksCard({
+    super.key,
+    required this.topTasks,
+    this.isLoading = false,
+    required this.onRefresh,
+  });
 
   Future<void> _toggleTask(Todo todo) async {
     final updated = todo.copyWith(isCompleted: !todo.isCompleted);
     await DatabaseService.instance.updateTodo(updated);
-    _loadTasks(); // Refresh list to remove completed
+    onRefresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const SizedBox.shrink();
+    if (isLoading) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -69,10 +52,10 @@ class _QuickTasksCardState extends State<QuickTasksCard> {
                     MaterialPageRoute(
                       builder: (context) => const TodoListScreen(),
                     ),
-                  ).then((_) => _loadTasks()); // Refresh on return
+                  ).then((_) => onRefresh()); // Refresh on return
                 },
                 child: Text(
-                  _topTasks.isEmpty ? 'Add Task' : 'See All',
+                  topTasks.isEmpty ? 'Add Task' : 'See All',
                   style: GoogleFonts.outfit(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.w600,
@@ -84,7 +67,7 @@ class _QuickTasksCardState extends State<QuickTasksCard> {
         ),
 
         // Task List
-        _topTasks.isEmpty
+        topTasks.isEmpty
             ? Container(
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
@@ -119,7 +102,7 @@ class _QuickTasksCardState extends State<QuickTasksCard> {
                 ),
               )
             : Column(
-                children: _topTasks
+                children: topTasks
                     .map((task) => _buildMiniTaskItem(task, isDark))
                     .toList(),
               ),

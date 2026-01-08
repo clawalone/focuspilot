@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
+
+import '../services/reminder_service.dart';
 import '../theme/app_theme.dart';
+import '../services/firestore_service.dart';
+
 import 'history_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -57,10 +62,18 @@ class _CalendarScreenState extends State<CalendarScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _loadData();
+    DatabaseService.instance.changeNotifier.addListener(_onDatabaseChanged);
+  }
+
+  void _onDatabaseChanged() {
+    if (mounted) {
+      _loadData();
+    }
   }
 
   @override
   void dispose() {
+    DatabaseService.instance.changeNotifier.removeListener(_onDatabaseChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -209,8 +222,83 @@ class _CalendarScreenState extends State<CalendarScreen>
       events.add({'type': 'task', 'value': taskCount});
     }
 
-    // debugPrint('Events for $day (key: $date): $events');
     return events;
+  }
+
+  Future<void> _setReminderForTodo(Todo todo) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              surface: const Color(0xFF1E1E2C),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && _selectedDay != null) {
+      final reminderDateTime = DateTime(
+        _selectedDay!.year,
+        _selectedDay!.month,
+        _selectedDay!.day,
+        picked.hour,
+        picked.minute,
+      );
+
+      if (reminderDateTime.isBefore(
+        DateTime.now().subtract(const Duration(minutes: 1)),
+      )) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot set a mission in the past')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Updating mission...'),
+            duration: Duration(milliseconds: 500),
+          ),
+        );
+      }
+
+      final updatedTodo = todo.copyWith(reminderTime: reminderDateTime);
+      await DatabaseService.instance.updateTodo(updatedTodo);
+
+      try {
+        await ReminderService().scheduleMissionReminder(
+          todo: updatedTodo,
+          scheduledDate: reminderDateTime,
+        );
+      } catch (e) {
+        debugPrint('Error scheduling reminder: $e');
+      }
+
+      // Sync to Cloud for Pro Reminders
+      await FirestoreService.instance.syncTodo(updatedTodo);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Mission set for ${DateFormat('h:mm a').format(reminderDateTime)}',
+            ),
+          ),
+        );
+        _onDaySelected(_selectedDay!, _focusedDay);
+      }
+    }
   }
 
   @override
@@ -665,6 +753,20 @@ class _CalendarScreenState extends State<CalendarScreen>
                                                 ),
                                           ),
                                         ),
+                                        if (!todo.isCompleted)
+                                          IconButton(
+                                            icon: Icon(
+                                              todo.reminderTime != null
+                                                  ? CupertinoIcons.bell_fill
+                                                  : CupertinoIcons.bell,
+                                              color: todo.reminderTime != null
+                                                  ? AppTheme.primaryColor
+                                                  : Colors.grey,
+                                              size: 20,
+                                            ),
+                                            onPressed: () =>
+                                                _setReminderForTodo(todo),
+                                          ),
                                       ],
                                     ),
                                   );

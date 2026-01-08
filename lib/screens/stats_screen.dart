@@ -540,24 +540,47 @@ class _StatsScreenState extends State<StatsScreen>
           ),
         ],
       ),
-      child: BarChart(
-        BarChartData(
-          gridData: FlGridData(show: false),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            horizontalInterval: 60,
+            verticalInterval: 1,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: theme.dividerColor.withOpacity(0.5),
+                strokeWidth: 1,
+              );
+            },
+            getDrawingVerticalLine: (value) {
+              return FlLine(
+                color: theme.dividerColor.withOpacity(0.5),
+                strokeWidth: 1,
+              );
+            },
+          ),
           titlesData: FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            show: true,
             rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                reservedSize: 30,
+                interval: 1,
                 getTitlesWidget: (value, meta) {
                   const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-                  if (value.toInt() >= 0 && value.toInt() < days.length) {
+                  int index = value.toInt();
+                  if (index >= 0 && index < days.length) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        days[value.toInt()],
-                        style: theme.textTheme.labelMedium,
+                        days[index],
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
                       ),
                     );
                   }
@@ -565,44 +588,71 @@ class _StatsScreenState extends State<StatsScreen>
                 },
               ),
             ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 60,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    value.toInt().toString(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.grey,
+                    ),
+                  );
+                },
+                reservedSize: 42,
+              ),
+            ),
           ),
-          borderData: FlBorderData(show: false),
-          barGroups: List.generate(7, (index) {
-            final date = DateTime.now().subtract(Duration(days: 6 - index));
-            int minutes = 0;
-            for (var s in _sessions) {
-              if (s.timestamp.year == date.year &&
-                  s.timestamp.month == date.month &&
-                  s.timestamp.day == date.day) {
-                minutes += s.duration ~/ 60;
-              }
-            }
-
-            return BarChartGroupData(
-              x: index,
-              barRods: [
-                BarChartRodData(
-                  toY: minutes.toDouble(),
-                  color: AppTheme.primaryColor,
-                  width: 16,
-                  borderRadius: BorderRadius.circular(4),
-                  backDrawRodData: BackgroundBarChartRodData(
-                    show: true,
-                    toY: 240,
-                    color: theme.brightness == Brightness.dark
-                        ? Colors.white10
-                        : Colors.grey.shade200,
-                  ),
-                ),
-              ],
-            );
-          }),
-          maxY: 240, // Ensure bars have room
+          borderData: FlBorderData(
+            show: true,
+            border: Border(
+              bottom: BorderSide(color: theme.dividerColor, width: 2),
+              left: BorderSide(color: theme.dividerColor, width: 2),
+              top: const BorderSide(color: Colors.transparent),
+              right: const BorderSide(color: Colors.transparent),
+            ),
+          ),
+          minX: 0,
+          maxX: 6,
+          minY: 0,
+          maxY:
+              240, // Fixed maxY or dynamic? Keeping 240 for consistency with "Goal"
+          lineBarsData: [
+            LineChartBarData(
+              spots: List.generate(7, (index) {
+                final date = DateTime.now().subtract(Duration(days: 6 - index));
+                int minutes = 0;
+                for (var s in _sessions) {
+                  if (s.timestamp.year == date.year &&
+                      s.timestamp.month == date.month &&
+                      s.timestamp.day == date.day) {
+                    minutes += s.duration ~/ 60;
+                  }
+                }
+                return FlSpot(index.toDouble(), minutes.toDouble());
+              }),
+              isCurved: false,
+              color: const Color(0xFF4DB6AC), // Teal color from image
+              barWidth: 4,
+              isStrokeCapRound: true,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotCirclePainter(
+                    radius: 6,
+                    color: theme.cardColor, // Hollow (white/dark bg)
+                    strokeWidth: 3,
+                    strokeColor: const Color(0xFF4DB6AC),
+                  );
+                },
+              ),
+              belowBarData: BarAreaData(show: false),
+            ),
+          ],
         ),
-        swapAnimationDuration: const Duration(
-          milliseconds: 600,
-        ), // Animate chart updates
-        swapAnimationCurve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
       ),
     );
   }

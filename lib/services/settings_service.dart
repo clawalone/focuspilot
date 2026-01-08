@@ -7,6 +7,9 @@ class SettingsService extends ChangeNotifier {
   static const String _keyDailyGoal = 'daily_goal';
   static const String _keyAutoBreak = 'auto_break';
 
+  static const String _keyDndEnabled = 'dnd_enabled';
+  static const String _keyNotificationsEnabled = 'notifications_enabled';
+
   final SharedPreferences _prefs;
 
   SettingsService(this._prefs);
@@ -55,6 +58,26 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> setAutoBreak(bool enabled) async {
     await _prefs.setBool(_keyAutoBreak, enabled);
+    notifyListeners();
+  }
+
+  // DND Enabled
+  bool getDndEnabled() {
+    return _prefs.getBool(_keyDndEnabled) ?? true;
+  }
+
+  Future<void> setDndEnabled(bool enabled) async {
+    await _prefs.setBool(_keyDndEnabled, enabled);
+    notifyListeners();
+  }
+
+  // Notifications
+  bool getNotificationsEnabled() {
+    return _prefs.getBool(_keyNotificationsEnabled) ?? true;
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _prefs.setBool(_keyNotificationsEnabled, enabled);
     notifyListeners();
   }
 }

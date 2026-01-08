@@ -6,14 +6,21 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.annotation.NonNull
-
 import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
+import android.widget.Button
+import android.widget.TextView
+import android.widget.LinearLayout
+import android.view.Gravity
+import android.graphics.Color
+import android.widget.FrameLayout
+
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.example.focusflow/permissions"
+    private val CHANNEL = "com.focuspilot.app/permissions"
+    private var blockingView: FrameLayout? = null
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -32,75 +39,122 @@ class MainActivity: FlutterActivity() {
                 result.success(null)
             } else if (call.method == "getForegroundApp") {
                 result.success(getForegroundApp())
+            } else if (call.method == "removeOverlay") {
+                removeBlockingOverlay()
+                result.success(null)
             } else if (call.method == "bringAppToFront") {
-                android.util.Log.d("FocusFlow", "bringAppToFront called")
-                android.widget.Toast.makeText(applicationContext, "FocusFlow: Blocking App!", android.widget.Toast.LENGTH_SHORT).show()
+                android.util.Log.d("FocusPilot", "bringAppToFront called")
                 
-                // Try to launch activity first
                 val launchIntent = applicationContext.packageManager.getLaunchIntentForPackage(packageName)
                 if (launchIntent != null) {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                     try {
                         applicationContext.startActivity(launchIntent)
                     } catch (e: Exception) {
-                        android.util.Log.e("FocusFlow", "Failed to start activity: ${e.message}")
-                        // Fallback to PendingIntent
-                         val pendingIntent = android.app.PendingIntent.getActivity(
+                        android.util.Log.e("FocusPilot", "Failed to start activity: ${e.message}")
+                    }
+                    
+                    try {
+                        val pendingIntent = android.app.PendingIntent.getActivity(
                             applicationContext,
                             0,
                             launchIntent,
                             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                         )
-                        try {
-                            pendingIntent.send()
-                        } catch (e2: Exception) {
-                            e2.printStackTrace()
-                        }
-                    }
-                }
-
-                // Force blocking using Overlay if permission is granted
-                if (Settings.canDrawOverlays(applicationContext)) {
-                    val windowManager = applicationContext.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-                    val params = android.view.WindowManager.LayoutParams(
-                        android.view.WindowManager.LayoutParams.MATCH_PARENT,
-                        android.view.WindowManager.LayoutParams.MATCH_PARENT,
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                            android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        else
-                            android.view.WindowManager.LayoutParams.TYPE_PHONE,
-                        android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                                android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                        android.graphics.PixelFormat.TRANSLUCENT
-                    )
-                    
-                    val view = android.widget.FrameLayout(applicationContext)
-                    view.setBackgroundColor(android.graphics.Color.BLACK) // Black screen block
-                    
-                    // Add a text view to explain
-                    val textView = android.widget.TextView(applicationContext)
-                    textView.text = "Focus Mode Active"
-                    textView.setTextColor(android.graphics.Color.WHITE)
-                    textView.textSize = 24f
-                    textView.gravity = android.view.Gravity.CENTER
-                    view.addView(textView)
-
-                    try {
-                        windowManager.addView(view, params)
-                        // Remove view after a short delay to allow app to launch
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            try {
-                                windowManager.removeView(view)
-                            } catch (e: Exception) {}
-                        }, 2000)
+                        pendingIntent.send()
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                         e.printStackTrace()
                     }
                 }
+
+                // Show blocking overlay if we have permission
+                if (Settings.canDrawOverlays(applicationContext)) {
+                    showBlockingOverlay()
+                }
+                
                 result.success(null)
             } else {
                 result.notImplemented()
+            }
+        }
+    }
+
+    private fun showBlockingOverlay() {
+        if (blockingView != null) return // Already showing
+
+        val windowManager = applicationContext.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+        val params = android.view.WindowManager.LayoutParams(
+            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                @Suppress("DEPRECATION")
+                android.view.WindowManager.LayoutParams.TYPE_PHONE,
+            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            android.graphics.PixelFormat.TRANSLUCENT
+        )
+
+        val layout = FrameLayout(applicationContext)
+        layout.setBackgroundColor(Color.parseColor("#121212")) // Dark premium background
+
+        val content = LinearLayout(applicationContext)
+        content.orientation = LinearLayout.VERTICAL
+        content.gravity = Gravity.CENTER
+
+        val title = TextView(applicationContext)
+        title.text = "FOCUS MODE ACTIVE"
+        title.setTextColor(Color.WHITE)
+        title.textSize = 28f
+        title.setPadding(0, 0, 0, 40)
+        title.gravity = Gravity.CENTER
+        content.addView(title)
+
+        val subtitle = TextView(applicationContext)
+        subtitle.text = "Returning you to FocusFlow..."
+        subtitle.setTextColor(Color.parseColor("#888888"))
+        subtitle.textSize = 16f
+        subtitle.setPadding(0, 0, 0, 80)
+        subtitle.gravity = Gravity.CENTER
+        content.addView(subtitle)
+
+        val button = Button(applicationContext)
+        button.text = "RETURN TO FOCUSFLOW"
+        button.setBackgroundColor(Color.parseColor("#4DB6AC")) // Teal primary color
+        button.setTextColor(Color.WHITE)
+        button.setPadding(40, 20, 40, 20)
+        button.setOnClickListener {
+            val launchIntent = applicationContext.packageManager.getLaunchIntentForPackage(packageName)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                applicationContext.startActivity(launchIntent)
+            }
+            removeBlockingOverlay()
+        }
+        content.addView(button)
+
+        layout.addView(content)
+        blockingView = layout
+
+        try {
+            windowManager.addView(layout, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            blockingView = null
+        }
+    }
+
+    private fun removeBlockingOverlay() {
+        if (blockingView != null) {
+            try {
+                val windowManager = applicationContext.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+                windowManager.removeView(blockingView)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                blockingView = null
             }
         }
     }
@@ -123,11 +177,23 @@ class MainActivity: FlutterActivity() {
         val endTime = System.currentTimeMillis()
         val startTime = endTime - 1000 * 60 // Look back 1 minute
 
-        val stats = usageStatsManager.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-        if (stats != null && stats.isNotEmpty()) {
-            val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
-            return sortedStats[0].packageName
+        val event = android.app.usage.UsageEvents.Event()
+        
+        // Let's re-implement simply: iterate and keep track of the latest MOVE_TO_FOREGROUND
+        val freshEvents = usageStatsManager.queryEvents(startTime, endTime)
+        var latestPackage: String? = null
+        var latestTime: Long = 0
+        
+        while (freshEvents.hasNextEvent()) {
+            freshEvents.getNextEvent(event)
+            if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                if (event.timeStamp > latestTime) {
+                    latestTime = event.timeStamp
+                    latestPackage = event.packageName
+                }
+            }
         }
-        return null
+        
+        return latestPackage
     }
 }

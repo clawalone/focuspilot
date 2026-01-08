@@ -58,7 +58,6 @@ class AppService extends ChangeNotifier {
             packageName.contains('com.android.wallpaper') ||
             packageName.contains('com.google.android.overlay') ||
             packageName.contains('android.auto_generated') ||
-            packageName.contains('com.example.focusflow') ||
             packageName.contains('com.focuspilot.app')) {
           continue;
         }

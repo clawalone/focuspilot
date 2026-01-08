@@ -48,3 +48,6 @@ app.*.map.json
 **/android/local.properties
 **/android/key.properties
 **/android/.gradle
+*.hprof
+.kotlin/
+analysis.txt

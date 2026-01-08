@@ -4,24 +4,51 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter_background/flutter_background.dart';
+
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
-
 import '../services/dnd_service.dart';
 import '../services/database_service.dart';
 import '../services/permission_service.dart';
+import '../services/notification_service.dart';
 import '../models/session.dart';
+
+enum TimerPhase { revise, work, breakTime }
+
+class TimerStep {
+  final TimerPhase phase;
+  final int durationSeconds;
+  final String label;
+
+  TimerStep({
+    required this.phase,
+    required this.durationSeconds,
+    required this.label,
+  });
+}
 
 class TimerScreen extends StatefulWidget {
   final String category;
-  final int durationInMinutes;
+  final int workMinutes;
+  final int reviseMinutes;
+  final int breakMinutes;
+  final int sessionsCount;
+  final bool isReviseBefore;
+  final String? note;
   final List<String> selectedApps;
 
   const TimerScreen({
     super.key,
     this.category = 'Focus',
-    this.durationInMinutes = 25,
+    this.workMinutes = 25,
+    this.reviseMinutes = 10,
+    this.breakMinutes = 5,
+    this.sessionsCount = 1,
+    this.isReviseBefore = true,
+    this.note,
     this.selectedApps = const [],
   });
 
@@ -31,32 +58,26 @@ class TimerScreen extends StatefulWidget {
 
 class _TimerScreenState extends State<TimerScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  late int _totalSeconds;
+  late List<TimerStep> _steps;
+  int _currentStepIndex = 0;
   late int _currentSeconds;
+
   Timer? _timer;
   Timer? _blockingTimer;
   bool _isRunning = false;
+  bool _isSessionCompleted = false;
   final DndService _dndService = DndService();
   final DatabaseService _databaseService = DatabaseService.instance;
   final PermissionService _permissionService = PermissionService();
+  final NotificationService _notificationService = NotificationService();
 
   // Animation
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Break Logic
-  bool _isBreak = false;
-  bool _autoBreakEnabled = false;
-
   // Permission Logic
   bool _isPermissionDialogShowing = false;
   bool _isCheckingPermissions = false;
-  int _timeUntilBreak = 1800; // 30 mins
-  int _currentBreakSeconds = 300; // 5 mins
-  // static const int _focusInterval = 10; // Dev Mode (10s)
-  // static const int _breakDuration = 5;  // Dev Mode (5s)
-  static const int _focusInterval = 1800; // 30 mins
-  static const int _breakDuration = 300; // 5 mins
 
   @override
   void initState() {
@@ -72,18 +93,68 @@ class _TimerScreenState extends State<TimerScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _totalSeconds = widget.durationInMinutes * 60;
-    _currentSeconds = _totalSeconds;
-
-    // Initialize Break Logic
-    _timeUntilBreak = _focusInterval;
-    _currentBreakSeconds = _breakDuration;
-
-    // Check Setting
-    final settings = Provider.of<SettingsService>(context, listen: false);
-    _autoBreakEnabled = settings.getAutoBreak();
+    _initSteps();
+    _currentSeconds = _steps[_currentStepIndex].durationSeconds;
 
     _initSession();
+  }
+
+  void _initSteps() {
+    _steps = [];
+
+    // 1. Revision Before
+    if (widget.isReviseBefore && widget.reviseMinutes > 0) {
+      _steps.add(
+        TimerStep(
+          phase: TimerPhase.revise,
+          durationSeconds: widget.reviseMinutes * 60,
+          label: 'REVISE',
+        ),
+      );
+    }
+
+    // 2. Work & Break Cycles
+    for (int i = 0; i < widget.sessionsCount; i++) {
+      _steps.add(
+        TimerStep(
+          phase: TimerPhase.work,
+          durationSeconds: widget.workMinutes * 60,
+          label: 'WORK ${i + 1}/${widget.sessionsCount}',
+        ),
+      );
+
+      if (i < widget.sessionsCount - 1 && widget.breakMinutes > 0) {
+        _steps.add(
+          TimerStep(
+            phase: TimerPhase.breakTime,
+            durationSeconds: widget.breakMinutes * 60,
+            label: 'BREAK',
+          ),
+        );
+      }
+    }
+
+    // 3. Revision After
+    if (!widget.isReviseBefore && widget.reviseMinutes > 0) {
+      _steps.add(
+        TimerStep(
+          phase: TimerPhase.revise,
+          durationSeconds: widget.reviseMinutes * 60,
+          label: 'REVISE',
+        ),
+      );
+    }
+
+    if (_steps.isEmpty) {
+      // Fallback
+      _steps.add(
+        TimerStep(
+          phase: TimerPhase.work,
+          durationSeconds: widget.workMinutes * 60,
+          label: 'WORK',
+        ),
+      );
+    }
   }
 
   Future<void> _initSession() async {
@@ -96,7 +167,6 @@ class _TimerScreenState extends State<TimerScreen>
 
     try {
       if (Platform.isAndroid) {
-        // Check all permissions
         bool dndGranted = await _dndService.isPermissionGranted();
         bool usageGranted = await _permissionService.checkUsagePermission();
         bool overlayGranted = await _permissionService.checkOverlayPermission();
@@ -105,7 +175,7 @@ class _TimerScreenState extends State<TimerScreen>
 
         if (dndGranted && usageGranted && overlayGranted) {
           if (_isPermissionDialogShowing) {
-            Navigator.of(context, rootNavigator: true).pop(); // Close dialog
+            Navigator.of(context, rootNavigator: true).pop();
             _isPermissionDialogShowing = false;
           }
           _startTimer();
@@ -134,22 +204,16 @@ class _TimerScreenState extends State<TimerScreen>
     if (!dndGranted) {
       title = 'Do Not Disturb Access';
       message =
-          'FocusFlow needs Do Not Disturb access to silence notifications during your session.';
-      onGrant = () async {
-        await _dndService.requestPermission();
-      };
+          'FocusPilot needs Do Not Disturb access to silence notifications.';
+      onGrant = () async => await _dndService.requestPermission();
     } else if (!usageGranted) {
       title = 'Usage Access';
-      message = 'FocusFlow needs Usage Access to detect if you open apps.';
-      onGrant = () async {
-        await _permissionService.requestUsagePermission();
-      };
+      message = 'FocusPilot needs Usage Access to detect if you open apps.';
+      onGrant = () async => await _permissionService.requestUsagePermission();
     } else if (!overlayGranted) {
       title = 'Overlay Permission';
-      message = 'FocusFlow needs Overlay permission to block apps.';
-      onGrant = () async {
-        await _permissionService.requestOverlayPermission();
-      };
+      message = 'FocusPilot needs Overlay permission to block apps.';
+      onGrant = () async => await _permissionService.requestOverlayPermission();
     }
 
     _isPermissionDialogShowing = true;
@@ -162,12 +226,6 @@ class _TimerScreenState extends State<TimerScreen>
         actions: [
           TextButton(
             onPressed: () {
-              // We rely on lifecycle resume to close dialog if granted?
-              // Or if user cancels?
-              // If user clicks "Grant", we close dialog AND run action.
-              // If we close dialog here, _isPermissionDialogShowing becomes false?
-              // But we want to keep it "true" regarding logic until we re-check?
-              // No, if we close it, we flip flag.
               Navigator.pop(context);
               _isPermissionDialogShowing = false;
               onGrant();
@@ -176,12 +234,8 @@ class _TimerScreenState extends State<TimerScreen>
           ),
         ],
       ),
-    ).then((_) {
-      // Cleanup if dialog closed via other means (e.g. back button if we allowed it, but barrier is false)
-      _isPermissionDialogShowing = false;
-    });
+    ).then((_) => _isPermissionDialogShowing = false);
   }
-
 
   @override
   void dispose() {
@@ -189,6 +243,7 @@ class _TimerScreenState extends State<TimerScreen>
     _timer?.cancel();
     _blockingTimer?.cancel();
     _pulseController.dispose();
+    _permissionService.removeOverlay();
     _safeTurnOffDnd();
     super.dispose();
   }
@@ -201,21 +256,29 @@ class _TimerScreenState extends State<TimerScreen>
     }
   }
 
+  Future<void> _safeTurnOnDnd() async {
+    final settings = Provider.of<SettingsService>(context, listen: false);
+    if (!settings.getDndEnabled()) return;
+
+    try {
+      await _dndService.turnOnDnd();
+    } catch (e) {
+      debugPrint('Error turning on DND: $e');
+    }
+  }
+
   Future<void> _enableBackgroundExecution() async {
     try {
       const androidConfig = FlutterBackgroundAndroidConfig(
         notificationTitle: 'Focus Session Running',
-        notificationText: 'FocusFlow is keeping you on track.',
+        notificationText: 'FocusPilot is keeping you on track.',
         notificationImportance: AndroidNotificationImportance.normal,
         notificationIcon: AndroidResource(
           name: 'ic_launcher',
           defType: 'mipmap',
         ),
       );
-      bool success = await FlutterBackground.initialize(
-        androidConfig: androidConfig,
-      );
-      if (success) {
+      if (await FlutterBackground.initialize(androidConfig: androidConfig)) {
         await FlutterBackground.enableBackgroundExecution();
       }
     } catch (e) {
@@ -236,8 +299,8 @@ class _TimerScreenState extends State<TimerScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Check permissions again when user returns to app
-      if (!_isRunning && _timer == null) {
+      _permissionService.removeOverlay();
+      if (!_isRunning && !_isSessionCompleted && _timer == null) {
         _checkPermissionsAndStart();
       }
     }
@@ -246,12 +309,7 @@ class _TimerScreenState extends State<TimerScreen>
   void _startTimer() {
     if (_timer != null) return;
 
-    // Fire and forget DND
-    _dndService.turnOnDnd().catchError((e) {
-      debugPrint('Error turning on DND: $e');
-    });
-
-    // Enable background execution
+    _safeTurnOnDnd();
     _enableBackgroundExecution();
 
     setState(() {
@@ -259,78 +317,73 @@ class _TimerScreenState extends State<TimerScreen>
       _pulseController.repeat(reverse: true);
     });
 
-    // Main Countdown Timer
+    _schedulePhaseNotification();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
-        if (_isBreak) {
-          // Break Logic
-          if (_currentBreakSeconds > 0) {
-            _currentBreakSeconds--;
-          } else {
-            _endBreak();
-          }
+        if (_currentSeconds > 0) {
+          _currentSeconds--;
         } else {
-          // Focus Logic
-          if (_currentSeconds > 0) {
-            _currentSeconds--;
-
-            // Check for Break Interval
-            if (_autoBreakEnabled) {
-              if (_timeUntilBreak > 0) {
-                _timeUntilBreak--;
-              } else {
-                _startBreak();
-              }
-            }
-          } else {
-            _finishSession();
-          }
+          _nextStep();
         }
       });
     });
 
-    // App Blocking Monitor
     if (widget.selectedApps.isNotEmpty && Platform.isAndroid) {
       _blockingTimer = Timer.periodic(const Duration(seconds: 1), (
         timer,
       ) async {
-        if (!_isRunning || _isBreak) return; // Don't block during break
+        if (!_isRunning ||
+            _steps[_currentStepIndex].phase == TimerPhase.breakTime)
+          return;
         await _checkForegroundApp();
       });
     }
   }
 
-  void _startBreak() {
-    _isBreak = true;
-    _currentBreakSeconds = _breakDuration;
-    _safeTurnOffDnd(); // Relax DND
-    FlutterRingtonePlayer().playNotification(); // Sound
-    // Pulse faster or different color? Changing UI is enough.
+  void _nextStep() {
+    if (_currentStepIndex < _steps.length - 1) {
+      _currentStepIndex++;
+      _currentSeconds = _steps[_currentStepIndex].durationSeconds;
+      FlutterRingtonePlayer().playNotification();
+
+      // Notify user of next phase
+      _notificationService.showNotification(
+        id: 10001,
+        title:
+            '${_steps[_currentStepIndex].label == "BREAK" ? "Time for a Break!" : "Focus Time!"}',
+        body: '${_steps[_currentStepIndex].label} started.',
+      );
+
+      // Manage DND based on phase
+      if (_steps[_currentStepIndex].phase == TimerPhase.breakTime) {
+        _safeTurnOffDnd();
+      } else {
+        _safeTurnOnDnd();
+      }
+      _schedulePhaseNotification();
+    } else {
+      _finishSession();
+    }
   }
 
-  void _endBreak() {
-    _isBreak = false;
-    _timeUntilBreak = _focusInterval; // Reset interval
-
-    FlutterRingtonePlayer().playNotification(); // Sound (Before DND)
-
-    // Re-enable DND if Focus is running
-    _dndService.turnOnDnd().catchError((e) {
-      debugPrint('Error re-enabling DND: $e');
-    });
+  void _schedulePhaseNotification() {
+    final step = _steps[_currentStepIndex];
+    _notificationService.scheduleNotification(
+      id: 10001, // Fixed ID for timer alerts
+      title: 'Time is up!',
+      body: '${step.label} session is complete.',
+      scheduledDate: DateTime.now().add(Duration(seconds: _currentSeconds)),
+    );
   }
 
   Future<void> _checkForegroundApp() async {
     try {
       final currentPackage = await _permissionService.getForegroundApp();
-
-      if (currentPackage != null) {
-        // Check if current app is in blocked list
-        if (widget.selectedApps.contains(currentPackage)) {
-          debugPrint('Blocked app detected: $currentPackage');
-          await _permissionService.bringAppToFront();
-        }
+      if (currentPackage != null &&
+          widget.selectedApps.contains(currentPackage)) {
+        await _permissionService.bringAppToFront();
       }
     } catch (e) {
       debugPrint('Error checking foreground app: $e');
@@ -340,380 +393,131 @@ class _TimerScreenState extends State<TimerScreen>
   void _pauseTimer() {
     _timer?.cancel();
     _timer = null;
-    _blockingTimer?.cancel(); // Stop blocking while paused
+    _blockingTimer?.cancel();
     _safeTurnOffDnd();
     _disableBackgroundExecution();
+    _notificationService.cancelNotification(10001);
+    _permissionService.removeOverlay();
     setState(() {
       _isRunning = false;
       _pulseController.stop();
-      _pulseController.value = 0; // Reset
+      _pulseController.value = 0;
     });
+  }
+
+  Future<void> _saveSession() async {
+    try {
+      int focusSecondsSpent = 0;
+      for (int i = 0; i <= _currentStepIndex; i++) {
+        int secondsInStep = (i == _currentStepIndex)
+            ? (_steps[i].durationSeconds - _currentSeconds)
+            : _steps[i].durationSeconds;
+
+        if (_steps[i].phase != TimerPhase.breakTime) {
+          focusSecondsSpent += secondsInStep;
+        }
+      }
+
+      final session = Session(
+        category: widget.category,
+        duration: focusSecondsSpent,
+        timestamp: DateTime.now(),
+        appsLimitedCount: widget.selectedApps.length,
+        workDuration: widget.workMinutes * 60,
+        reviseDuration: widget.reviseMinutes * 60,
+        breakDuration: widget.breakMinutes * 60,
+        sessionsCount: widget.sessionsCount,
+        isReviseBefore: widget.isReviseBefore,
+        note: widget.note,
+      );
+      await _databaseService.create(session);
+      debugPrint('Session saved: ${session.toMap()}');
+    } catch (e) {
+      debugPrint('Error saving session: $e');
+    }
   }
 
   void _finishSession() async {
     _timer?.cancel();
     _timer = null;
     _blockingTimer?.cancel();
+    _blockingTimer = null; // reset to null
     _safeTurnOffDnd();
     _disableBackgroundExecution();
+    _notificationService.cancelNotification(10001);
+    _permissionService.removeOverlay();
     setState(() {
       _isRunning = false;
+      _isSessionCompleted = true;
       _pulseController.stop();
     });
 
-    FlutterRingtonePlayer().playNotification(); // Sound
+    FlutterRingtonePlayer().playNotification();
 
-    // Save session
-    try {
-      final session = Session(
-        category: widget.category,
-        duration: widget.durationInMinutes * 60 - _currentSeconds,
-        timestamp: DateTime.now(),
-        appsLimitedCount: widget.selectedApps.length,
-      );
-      await _databaseService.create(session);
-      debugPrint('Session saved successfully: ${session.toMap()}');
-    } catch (e) {
-      debugPrint('Error saving session: $e');
-    }
+    // Explicit notification for session complete
+    _notificationService.showNotification(
+      id: 10001,
+      title: 'Session Complete!',
+      body: 'Great job! You have completed your focus session.',
+    );
+
+    await _saveSession();
+    _permissionService.bringAppToFront();
 
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: Theme.of(context).brightness == Brightness.dark
-                    ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
-                    : [Colors.white, const Color(0xFFF0F2F5)],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Success Icon
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_rounded,
-                    color: Colors.greenAccent,
-                    size: 48,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Session Complete!',
-                  style: GoogleFonts.outfit(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Great job focusing! You are one step closer to your goals.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white60
-                        : Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(); // Close dialog
-                      Navigator.of(
-                        context,
-                      ).popUntil((route) => route.isFirst); // Back to Home
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
-                      foregroundColor:
-                          Theme.of(context).brightness == Brightness.dark
-                          ? Colors.black
-                          : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Continue',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      _showSuccessDialog();
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E272E),
+            borderRadius: BorderRadius.circular(24),
           ),
-        ),
-      );
-    }
-  }
-
-  void _toggleTimer() {
-    if (_isRunning) {
-      _pauseTimer();
-    } else {
-      _startTimer();
-    }
-  }
-
-  String get _formattedTime {
-    final secondsToDisplay = _isBreak ? _currentBreakSeconds : _currentSeconds;
-    final minutes = (secondsToDisplay ~/ 60).toString().padLeft(2, '0');
-    final seconds = (secondsToDisplay % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  double get _percent {
-    if (_isBreak) {
-      return 1.0 - (_currentBreakSeconds / _breakDuration);
-    }
-    if (_totalSeconds == 0) return 0.0;
-    return 1.0 - (_currentSeconds / _totalSeconds);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          // Subtle Mesh Gradient Background
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    const Color(0xFF1A1A2E), // Dark Blue
-                    const Color(0xFF16213E), // Slightly lighter
-                    const Color(0xFF0F3460), // Accent hint
-                  ]
-                : [
-                    const Color(0xFFF0F2F5), // Soft white/grey
-                    const Color(0xFFE6E6FA), // Lavender hint
-                    const Color(0xFFE0FFFF), // Cyan hint
-                  ],
-          ),
-        ),
-        child: SafeArea(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. Header with Glass Pill
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white10
-                              : Colors.black.withOpacity(0.05),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.white.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white12
-                              : Colors.black.withOpacity(0.05),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.local_fire_department,
-                            size: 16,
-                            color: isDark ? Colors.orangeAccent : Colors.orange,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            widget.category.toUpperCase(),
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              fontSize: 14,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 48), // Balance centering
-                  ],
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.greenAccent,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Session Complete!',
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-
-              const Spacer(),
-
-              // 2. Timer with Breathing Animation
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _isRunning ? _pulseAnimation.value : 1.0,
-                    child: CircularPercentIndicator(
-                      radius: 140.0,
-                      lineWidth: 15.0, // Thicker line
-                      percent: _percent.clamp(0.0, 1.0),
-                      circularStrokeCap: CircularStrokeCap.round,
-                      backgroundColor: isDark
-                          ? Colors.white.withOpacity(0.05)
-                          : Colors.grey.withOpacity(0.1),
-                      progressColor: _isBreak
-                          ? Colors.greenAccent
-                          : _getCategoryColor(widget.category), // Dynamic color
-                      center: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _formattedTime,
-                            style: GoogleFonts.spaceMono(
-                              // Monospace for numbers
-                              fontSize: 64,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _isBreak
-                                ? 'TAKE A BREAK'
-                                : (_isRunning ? 'FOCUSING' : 'PAUSED'),
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              letterSpacing: 2,
-                              color: isDark ? Colors.white54 : Colors.black45,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+              const SizedBox(height: 8),
+              Text(
+                'Great job focusing!',
+                style: GoogleFonts.outfit(fontSize: 16, color: Colors.white70),
               ),
-
-              const Spacer(),
-
-              // 3. Modern Controls
-              Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  children: [
-                    // Play/Pause Button
-                    GestureDetector(
-                      onTap: _toggleTimer,
-                      child: Container(
-                        height: 80,
-                        width: 80,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white : Colors.black,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isDark ? Colors.white : Colors.black)
-                                  .withOpacity(0.3),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _isRunning
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: 40,
-                          color: isDark ? Colors.black : Colors.white,
-                        ),
-                      ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00BCD4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 40),
-
-                    // Finish Early / Stop
-                    TextButton(
-                      onPressed: _finishSession,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        backgroundColor: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.grey.withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: Text(
-                        'Finish Session',
-                        style: GoogleFonts.outfit(
-                          color: isDark ? Colors.white54 : Colors.black54,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  child: const Text('Continue'),
                 ),
               ),
             ],
@@ -723,19 +527,307 @@ class _TimerScreenState extends State<TimerScreen>
     );
   }
 
-  // Helper for dynamic colors
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'work':
-        return const Color(0xFF4481EB);
-      case 'personal':
-        return const Color(0xFF9F44D3);
-      case 'reading':
-        return const Color(0xFFFF9A44);
-      case 'sleep':
-        return const Color(0xFF4A148C);
-      default:
-        return const Color(0xFF6C63FF);
-    }
+  void _toggleTimer() {
+    if (_isRunning)
+      _pauseTimer();
+    else
+      _startTimer();
+  }
+
+  void _handleBack() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E272E),
+        title: Text(
+          'Exit Timer?',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Do you want to save the current progress?',
+          style: GoogleFonts.outfit(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => {Navigator.pop(context), Navigator.pop(context)},
+            child: const Text('No', style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _saveSession();
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Yes',
+              style: TextStyle(color: Color(0xFF00BCD4)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String get _formattedTime {
+    final minutes = (_currentSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_currentSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  double get _percent {
+    final total = _steps[_currentStepIndex].durationSeconds;
+    if (total == 0) return 0.0;
+    return 1.0 - (_currentSeconds / total);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentStep = _steps[_currentStepIndex];
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppTheme.statsDarkBackground,
+        body: Stack(
+          children: [
+            // Base Background
+            Container(color: AppTheme.statsDarkBackground),
+
+            // Background Blobs (Mesh Gradient)
+            Positioned(
+              top: -100,
+              right: -100,
+              child:
+                  Container(
+                        width: 400,
+                        height: 400,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              AppTheme.primaryColor.withOpacity(0.4),
+                              AppTheme.primaryColor.withOpacity(0),
+                            ],
+                          ),
+                        ),
+                      )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .move(
+                        begin: const Offset(0, 0),
+                        end: const Offset(-50, 40),
+                        duration: 10.seconds,
+                        curve: Curves.easeInOut,
+                      )
+                      .scale(
+                        begin: const Offset(1, 1),
+                        end: const Offset(1.2, 1.2),
+                        duration: 12.seconds,
+                        curve: Curves.easeInOut,
+                      ),
+            ),
+            Positioned(
+              bottom: -100,
+              left: -100,
+              child:
+                  Container(
+                        width: 400,
+                        height: 400,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              AppTheme.secondaryColor.withOpacity(0.3),
+                              AppTheme.secondaryColor.withOpacity(0),
+                            ],
+                          ),
+                        ),
+                      )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .move(
+                        begin: const Offset(0, 0),
+                        end: const Offset(40, -50),
+                        duration: 12.seconds,
+                        curve: Curves.easeInOut,
+                      )
+                      .scale(
+                        begin: const Offset(1, 1),
+                        end: const Offset(1.1, 1.1),
+                        duration: 14.seconds,
+                        curve: Curves.easeInOut,
+                      ),
+            ),
+            Positioned(
+              top: 200,
+              left: -150,
+              child:
+                  Container(
+                        width: 350,
+                        height: 350,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              AppTheme.primaryColor.withOpacity(0.2),
+                              AppTheme.primaryColor.withOpacity(0),
+                            ],
+                          ),
+                        ),
+                      )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .move(
+                        begin: const Offset(0, 0),
+                        end: const Offset(30, 30),
+                        duration: 15.seconds,
+                        curve: Curves.easeInOut,
+                      ),
+            ),
+
+            // Main Content
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: _handleBack,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Text(
+                            widget.category.toUpperCase(),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  AnimatedBuilder(
+                    animation: _pulseAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _isRunning ? _pulseAnimation.value : 1.0,
+                        child: CircularPercentIndicator(
+                          radius: 140.0,
+                          lineWidth: 15.0,
+                          percent: _percent.clamp(0.0, 1.0),
+                          circularStrokeCap: CircularStrokeCap.round,
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                          progressColor:
+                              currentStep.phase == TimerPhase.breakTime
+                              ? AppTheme.secondaryColor
+                              : AppTheme.primaryColor,
+                          center: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _formattedTime,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                currentStep.label,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  letterSpacing: 2,
+                                  color: Colors.white54,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (widget.note != null && widget.note!.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Text(
+                        widget.note!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white38,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _toggleTimer,
+                          child: Container(
+                            height: 80,
+                            width: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isRunning
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              size: 40,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        TextButton(
+                          onPressed: _finishSession,
+                          child: Text(
+                            'Finish Session',
+                            style: GoogleFonts.outfit(color: Colors.white38),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
