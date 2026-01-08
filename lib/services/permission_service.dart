@@ -1,10 +1,34 @@
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
 class PermissionService {
   static const MethodChannel _channel = MethodChannel(
-    'com.example.focusflow/permissions',
+    'com.focuspilot.app/permissions',
   );
+
+  Future<bool> checkNotificationPermission() async {
+    if (!Platform.isAndroid) return true;
+    final status = await Permission.notification.status;
+    final exactStatus = await Permission.scheduleExactAlarm.status;
+    return status.isGranted && exactStatus.isGranted;
+  }
+
+  Future<bool> isBatteryOptimizationDisabled() async {
+    if (!Platform.isAndroid) return true;
+    return await Permission.ignoreBatteryOptimizations.isGranted;
+  }
+
+  Future<void> requestBatteryOptimizationAccess() async {
+    if (!Platform.isAndroid) return;
+    await Permission.ignoreBatteryOptimizations.request();
+  }
+
+  Future<void> requestNotificationPermission() async {
+    if (!Platform.isAndroid) return;
+    await Permission.notification.request();
+    await Permission.scheduleExactAlarm.request();
+  }
 
   Future<bool> checkUsagePermission() async {
     if (!Platform.isAndroid) return true;
@@ -67,6 +91,15 @@ class PermissionService {
       await _channel.invokeMethod('bringAppToFront');
     } on PlatformException catch (e) {
       print("Failed to bring app to front: '${e.message}'.");
+    }
+  }
+
+  Future<void> removeOverlay() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('removeOverlay');
+    } on PlatformException catch (e) {
+      print("Failed to remove overlay: '${e.message}'.");
     }
   }
 }

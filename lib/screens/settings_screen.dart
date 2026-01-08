@@ -1,9 +1,14 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../services/permission_service.dart';
 import '../services/database_service.dart';
+import '../services/auth_service.dart';
+// Just in case, though likely not needed here, keeping logic clean
+import '../theme/app_theme.dart';
+import '../widgets/animated_background.dart';
 import '../main.dart'; // For themeNotifier
 
 class SettingsScreen extends StatefulWidget {
@@ -27,6 +32,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _dailyGoal;
   late bool _autoBreak;
 
+  late bool _dndEnabled;
+  bool _notificationsEnabled = false;
+  bool _osNotificationsPermission = false;
+  bool _batteryOptimizationDisabled = false;
+
   // Permissions State
   bool _usagePermission = false;
   bool _overlayPermission = false;
@@ -47,6 +57,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Check permissions
     final usage = await _permissionService.checkUsagePermission();
     final overlay = await _permissionService.checkOverlayPermission();
+    final notificationStatus = await _permissionService
+        .checkNotificationPermission();
+    final batteryStatus = await _permissionService
+        .isBatteryOptimizationDisabled();
 
     if (mounted) {
       setState(() {
@@ -54,6 +68,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _focusDuration = _settingsService.getFocusDuration();
         _dailyGoal = _settingsService.getDailyGoal();
         _autoBreak = _settingsService.getAutoBreak();
+
+        _dndEnabled = _settingsService.getDndEnabled();
+        _notificationsEnabled = _settingsService.getNotificationsEnabled();
+        _osNotificationsPermission = notificationStatus;
+        _batteryOptimizationDisabled = batteryStatus;
         _appVersion = packageInfo.version;
         _usagePermission = usage;
         _overlayPermission = overlay;
@@ -110,6 +129,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log Out?'),
+        content: const Text(
+          'Are you sure you want to log out of your account?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.signOut();
+      if (mounted) {
+        // The StreamBuilder in main.dart will automatically handle the switch to LoginScreen
+        Navigator.pop(context); // Close Settings page
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -119,147 +170,263 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.grey.shade50,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: isDark ? Colors.black : Colors.white,
-            elevation: 0,
-            title: Text(
-              'Settings',
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: isDark ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 26,
+      body: AnimatedBackground(
+        child: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                backgroundColor:
+                    Colors.transparent, // Transparent to show blobs
+                elevation: 0,
+                title: Text(
+                  'Settings',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    color: isDark ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                  ),
+                ),
+                centerTitle: false,
+                leading: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
-            ),
-            centerTitle: false,
-            leading: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios,
-                color: isDark ? Colors.white : Colors.black,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader('Appearance'),
+                      _buildCard([_buildThemeSelector()]),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('Focus'),
+                      _buildCard([
+                        _buildDurationTile(
+                          'Default Duration',
+                          '$_focusDuration minutes',
+                          (val) => _updateFocusDuration(val.toInt()),
+                          min: 5,
+                          max: 120,
+                          value: _focusDuration.toDouble(),
+                          divisions: 23,
+                        ),
+                        const Divider(height: 1),
+                        _buildDurationTile(
+                          'Daily Goal',
+                          '${(_dailyGoal / 60).toStringAsFixed(1)} hours',
+                          (val) => _updateDailyGoal(val.toInt()),
+                          min: 30,
+                          max: 480, // 8 hours
+                          value: _dailyGoal.toDouble(),
+                          divisions: 15,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: const Text('Auto-start Break'),
+                          subtitle: const Text(
+                            'Start break timer automatically after focus',
+                          ),
+                          value: _autoBreak,
+                          onChanged: (val) async {
+                            setState(() => _autoBreak = val);
+                            await _settingsService.setAutoBreak(val);
+                          },
+                        ),
+
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: const Text('Auto DND'),
+                          subtitle: const Text(
+                            'Turn on Do Not Disturb during focus',
+                          ),
+                          value: _dndEnabled,
+                          onChanged: (val) async {
+                            setState(() => _dndEnabled = val);
+                            await _settingsService.setDndEnabled(val);
+                          },
+                        ),
+                      ]),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('Permissions'),
+                      _buildCard([
+                        _buildPermissionTile(
+                          'Usage Access',
+                          'Required to detect running apps',
+                          _usagePermission,
+                          () async {
+                            await _permissionService.requestUsagePermission();
+                            // Refresh state
+                            final granted = await _permissionService
+                                .checkUsagePermission();
+                            setState(() => _usagePermission = granted);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildPermissionTile(
+                          'Overlay Permission',
+                          'Required to block apps effectively',
+                          _overlayPermission,
+                          () async {
+                            await _permissionService.requestOverlayPermission();
+                            final granted = await _permissionService
+                                .checkOverlayPermission();
+                            setState(() => _overlayPermission = granted);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildPermissionTile(
+                          'Do Not Disturb',
+                          'Required to silence notifications',
+                          _dndPermission,
+                          () async {
+                            // Placeholder for DND permission request/check
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildPermissionTile(
+                          'Notification Alert',
+                          'Required for task reminders',
+                          _osNotificationsPermission,
+                          () async {
+                            await _permissionService
+                                .requestNotificationPermission();
+                            final granted = await _permissionService
+                                .checkNotificationPermission();
+                            setState(
+                              () => _osNotificationsPermission = granted,
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildPermissionTile(
+                          'Battery Saver',
+                          'Must be "Unrestricted" for reminders',
+                          _batteryOptimizationDisabled,
+                          () async {
+                            await _permissionService
+                                .requestBatteryOptimizationAccess();
+                            final granted = await _permissionService
+                                .isBatteryOptimizationDisabled();
+                            setState(
+                              () => _batteryOptimizationDisabled = granted,
+                            );
+                          },
+                        ),
+                      ]),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('Notifications'),
+                      _buildCard([
+                        SwitchListTile(
+                          title: const Text('Enable Notifications'),
+                          subtitle: Row(
+                            children: [
+                              const Text('Receive focus timer alerts'),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _osNotificationsPermission
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _osNotificationsPermission ? 'ON' : 'OFF',
+                                  style: TextStyle(
+                                    color: _osNotificationsPermission
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          value: _notificationsEnabled,
+                          onChanged: (val) async {
+                            setState(() => _notificationsEnabled = val);
+                            await _settingsService.setNotificationsEnabled(val);
+                          },
+                        ),
+                      ]),
+                      const SizedBox(height: 12),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Note for Xiaomi/Poco users: Set FocusPilot to "No restrictions" in App info > Battery saver and enable "Autostart" if available.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('Data'),
+                      _buildCard([
+                        ListTile(
+                          title: const Text(
+                            'Clear History',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          leading: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          onTap: _clearHistory,
+                        ),
+                      ]),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('About'),
+                      _buildCard([
+                        ListTile(
+                          title: const Text('Version'),
+                          trailing: Text(
+                            _appVersion,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader('Account'),
+                      _buildCard([
+                        ListTile(
+                          title: const Text(
+                            'Log Out',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          leading: const Icon(
+                            Icons.logout_rounded,
+                            color: Colors.red,
+                          ),
+                          onTap: _signOut,
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
               ),
-              onPressed: () => Navigator.pop(context),
-            ),
+            ],
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader('Appearance'),
-                  _buildCard([_buildThemeSelector()]),
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader('Focus'),
-                  _buildCard([
-                    _buildDurationTile(
-                      'Default Duration',
-                      '$_focusDuration minutes',
-                      (val) => _updateFocusDuration(val.toInt()),
-                      min: 5,
-                      max: 120,
-                      value: _focusDuration.toDouble(),
-                      divisions: 23,
-                    ),
-                    const Divider(height: 1),
-                    _buildDurationTile(
-                      'Daily Goal',
-                      '${(_dailyGoal / 60).toStringAsFixed(1)} hours',
-                      (val) => _updateDailyGoal(val.toInt()),
-                      min: 30,
-                      max: 480, // 8 hours
-                      value: _dailyGoal.toDouble(),
-                      divisions: 15,
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      title: const Text('Auto-start Break'),
-                      subtitle: const Text(
-                        'Start break timer automatically after focus',
-                      ),
-                      value: _autoBreak,
-                      onChanged: (val) async {
-                        setState(() => _autoBreak = val);
-                        await _settingsService.setAutoBreak(val);
-                      },
-                    ),
-                  ]),
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader('Permissions'),
-                  _buildCard([
-                    _buildPermissionTile(
-                      'Usage Access',
-                      'Required to detect running apps',
-                      _usagePermission,
-                      () async {
-                        await _permissionService.requestUsagePermission();
-                        // Refresh state
-                        final granted = await _permissionService
-                            .checkUsagePermission();
-                        setState(() => _usagePermission = granted);
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildPermissionTile(
-                      'Overlay Permission',
-                      'Required to block apps effectively',
-                      _overlayPermission,
-                      () async {
-                        await _permissionService.requestOverlayPermission();
-                        final granted = await _permissionService
-                            .checkOverlayPermission();
-                        setState(() => _overlayPermission = granted);
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildPermissionTile(
-                      'Do Not Disturb',
-                      'Required to silence notifications',
-                      _dndPermission,
-                      () async {
-                        // Placeholder for DND permission request/check
-                      },
-                    ),
-                  ]),
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader('Data'),
-                  _buildCard([
-                    ListTile(
-                      title: const Text(
-                        'Clear History',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      leading: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                      ),
-                      onTap: _clearHistory,
-                    ),
-                  ]),
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader('About'),
-                  _buildCard([
-                    ListTile(
-                      title: const Text('Version'),
-                      trailing: Text(
-                        _appVersion,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -281,17 +448,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildCard(List<Widget> children) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (isDark) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.statsCardBackground.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(children: children),
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade900 : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          if (!isDark)
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(children: children),

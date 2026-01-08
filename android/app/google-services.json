@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "436313313275",
+    "project_id": "collageproject-f2fa5",
+    "storage_bucket": "collageproject-f2fa5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436313313275:android:42c0964be4572d419e055e",
+        "android_client_info": {
+          "package_name": "com.example.collage_project"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "436313313275-qsgthtdb61cr80omrodmmdg1akk74p29.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.collage_project",
+            "certificate_hash": "08bf1dc2fdbe65f3c2973073e80c81904c6f1bad"
+          }
+        },
+        {
+          "client_id": "436313313275-msbhem2pj3hmd5n9qnvb80cvnuilltus.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDosB7Udn1X6bRN6MEsPxUQjkXo0fpDuRQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "436313313275-msbhem2pj3hmd5n9qnvb80cvnuilltus.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "436313313275-3j4ufjkn32hj0g4ohq7f45ntlt5annfs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.collageProject"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436313313275:android:333bb3bd012205009e055e",
+        "android_client_info": {
+          "package_name": "com.focuspilot.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "436313313275-msbhem2pj3hmd5n9qnvb80cvnuilltus.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDosB7Udn1X6bRN6MEsPxUQjkXo0fpDuRQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "436313313275-msbhem2pj3hmd5n9qnvb80cvnuilltus.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "436313313275-3j4ufjkn32hj0g4ohq7f45ntlt5annfs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.collageProject"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

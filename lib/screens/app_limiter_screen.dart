@@ -2,17 +2,30 @@ import 'package:flutter/material.dart';
 
 import 'package:installed_apps/app_info.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/app_service.dart';
+import '../theme/app_theme.dart';
 import 'timer_screen.dart';
 
 class AppLimiterScreen extends StatefulWidget {
   final String category;
-  final int durationInMinutes;
+  final int workMinutes;
+  final int reviseMinutes;
+  final int breakMinutes;
+  final int sessionsCount;
+  final bool isReviseBefore;
+  final String? note;
 
   const AppLimiterScreen({
     super.key,
     this.category = 'Focus',
-    this.durationInMinutes = 25,
+    this.workMinutes = 25,
+    this.reviseMinutes = 10,
+    this.breakMinutes = 5,
+    this.sessionsCount = 1,
+    this.isReviseBefore = true,
+    this.note,
   });
 
   @override
@@ -102,194 +115,309 @@ class _AppLimiterScreenState extends State<AppLimiterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            size: 20,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'select apps to limit',
-                              style: TextStyle(
-                                fontSize: 24, // Reduced slightly to fit button
-                                fontWeight: FontWeight.w400,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _toggleSelectAll,
-                              child: Text(
-                                _isAllSelected ? 'deselect all' : 'select all',
-                                style: const TextStyle(
-                                  // color: AppTheme.primaryColor, // Ensure visibility, maybe use a specific color or default
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+      backgroundColor: AppTheme.statsDarkBackground,
+      body: Stack(
+        children: [
+          // Base Background
+          Container(color: AppTheme.statsDarkBackground),
+
+          // Background Blobs (Mesh Gradient)
+          Positioned(
+            top: -100,
+            right: -100,
+            child:
+                Container(
+                      width: 400,
+                      height: 400,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppTheme.primaryColor.withOpacity(0.4),
+                            AppTheme.primaryColor.withOpacity(0),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'stop apps from sending notifications\nwhile you\'re focusing',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade500,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Search Bar
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                            decoration: InputDecoration(
-                              icon: Icon(
-                                Icons.search,
-                                color: Colors.grey.shade400,
-                              ),
-                              border: InputBorder.none,
-                              hintText: 'search',
-                              hintStyle: TextStyle(color: Colors.grey.shade400),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        if (_socialApps.isNotEmpty) ...[
-                          _buildSectionHeader('social media'),
-                          const SizedBox(height: 16),
-                          _buildHorizontalList(_socialApps),
-                          const SizedBox(height: 24),
-                        ],
-
-                        if (_messengerApps.isNotEmpty) ...[
-                          _buildSectionHeader('messengers'),
-                          const SizedBox(height: 16),
-                          _buildHorizontalList(_messengerApps),
-                          const SizedBox(height: 24),
-                        ],
-
-                        if (_otherApps.isNotEmpty) ...[
-                          _buildSectionHeader('all apps'),
-                          const SizedBox(height: 16),
-                          // Grid for "other" apps to be space efficient?
-                          // Or horizontal too? Image implies horizontal lists.
-                          // Let's stick to horizontal for consistency, or vertical list for "all".
-                          // Given "All Apps" can be huge, a vertical list or grid inside the scroll view is better.
-                          // But to match the "clean" look, let's try a grid.
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4,
-                                  childAspectRatio: 0.75,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                ),
-                            itemCount: _otherApps.length,
-                            itemBuilder: (context, index) =>
-                                _buildAppItem(_otherApps[index]),
-                          ),
-                          const SizedBox(
-                            height: 100,
-                          ), // Space for bottom button
-                        ],
-                      ],
+                      ),
+                    )
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .move(
+                      begin: const Offset(0, 0),
+                      end: const Offset(-50, 40),
+                      duration: 10.seconds,
+                      curve: Curves.easeInOut,
+                    )
+                    .scale(
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.2, 1.2),
+                      duration: 12.seconds,
+                      curve: Curves.easeInOut,
                     ),
-                  ),
-                ),
-
-                // Bottom Button
+          ),
+          Positioned(
+            bottom: -100,
+            left: -100,
+            child:
                 Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.black : Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
+                      width: 400,
+                      height: 400,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppTheme.secondaryColor.withOpacity(0.3),
+                            AppTheme.secondaryColor.withOpacity(0),
+                          ],
+                        ),
+                      ),
+                    )
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .move(
+                      begin: const Offset(0, 0),
+                      end: const Offset(40, -50),
+                      duration: 12.seconds,
+                      curve: Curves.easeInOut,
+                    )
+                    .scale(
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.1, 1.1),
+                      duration: 14.seconds,
+                      curve: Curves.easeInOut,
+                    ),
+          ),
+          Positioned(
+            top: 200,
+            left: -150,
+            child:
+                Container(
+                      width: 350,
+                      height: 350,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppTheme.primaryColor.withOpacity(0.2),
+                            AppTheme.primaryColor.withOpacity(0),
+                          ],
+                        ),
+                      ),
+                    )
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .move(
+                      begin: const Offset(0, 0),
+                      end: const Offset(30, 30),
+                      duration: 15.seconds,
+                      curve: Curves.easeInOut,
+                    ),
+          ),
+
+          // Content
+          SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'select apps to limit',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _toggleSelectAll,
+                                    child: Text(
+                                      _isAllSelected
+                                          ? 'deselect all'
+                                          : 'select all',
+                                      style: GoogleFonts.outfit(
+                                        color: AppTheme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'stop apps from sending notifications while you\'re focusing',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 16,
+                                  color: Colors.white38,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Search Bar
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                  ),
+                                  decoration: InputDecoration(
+                                    icon: const Icon(
+                                      Icons.search,
+                                      color: Colors.white38,
+                                    ),
+                                    border: InputBorder.none,
+                                    hintText: 'search',
+                                    hintStyle: GoogleFonts.outfit(
+                                      color: Colors.white24,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+
+                              if (_socialApps.isNotEmpty) ...[
+                                _buildSectionHeader('social media'),
+                                const SizedBox(height: 16),
+                                _buildHorizontalList(_socialApps),
+                                const SizedBox(height: 24),
+                              ],
+
+                              if (_messengerApps.isNotEmpty) ...[
+                                _buildSectionHeader('messengers'),
+                                const SizedBox(height: 16),
+                                _buildHorizontalList(_messengerApps),
+                                const SizedBox(height: 24),
+                              ],
+
+                              if (_otherApps.isNotEmpty) ...[
+                                _buildSectionHeader('all apps'),
+                                const SizedBox(height: 16),
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 4,
+                                        childAspectRatio: 0.75,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                      ),
+                                  itemCount: _otherApps.length,
+                                  itemBuilder: (context, index) =>
+                                      _buildAppItem(_otherApps[index]),
+                                ),
+                                const SizedBox(height: 100),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Bottom Button
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          border: Border(
+                            top: BorderSide(color: Colors.white10),
+                          ),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.primaryGradient,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TimerScreen(
+                                    category: widget.category,
+                                    workMinutes: widget.workMinutes,
+                                    reviseMinutes: widget.reviseMinutes,
+                                    breakMinutes: widget.breakMinutes,
+                                    sessionsCount: widget.sessionsCount,
+                                    isReviseBefore: widget.isReviseBefore,
+                                    note: widget.note,
+                                    selectedApps: _selectedApps.toList(),
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Start sessions',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TimerScreen(
-                              category: widget.category,
-                              durationInMinutes: widget.durationInMinutes,
-                              selectedApps: _selectedApps.toList(),
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? Colors.white : Colors.black,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'start',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      style: GoogleFonts.outfit(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: Colors.white70,
+      ),
     );
   }
 
@@ -307,7 +435,6 @@ class _AppLimiterScreenState extends State<AppLimiterScreen> {
 
   Widget _buildAppItem(AppInfo app) {
     final isSelected = _selectedApps.contains(app.packageName);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: () => _toggleAppSelection(app.packageName),
@@ -318,20 +445,18 @@ class _AppLimiterScreenState extends State<AppLimiterScreen> {
             height: 70,
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFFEADDFF) // Light purple for selection
-                  : (isDark ? Colors.grey.shade900 : Colors.white),
+                  ? AppTheme.primaryColor.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF6750A4) // Purple border
-                    : Colors.grey.shade300,
+                color: isSelected ? AppTheme.primaryColor : Colors.white10,
                 width: 1.5,
               ),
             ),
             padding: const EdgeInsets.all(12),
             child: app.icon != null
                 ? Image.memory(app.icon!)
-                : const Icon(Icons.android, color: Colors.grey),
+                : const Icon(Icons.android, color: Colors.white10),
           ),
         ],
       ),

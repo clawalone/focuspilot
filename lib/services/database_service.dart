@@ -11,6 +11,8 @@ class DatabaseService {
 
   DatabaseService._init();
 
+  final ValueNotifier<int> changeNotifier = ValueNotifier(0);
+
   static const String tableTodos = 'todos';
 
   Future<Database> get database async {
@@ -26,7 +28,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -60,15 +62,49 @@ CREATE TABLE $tableTodos (
       }
     }
 
-    // Migration for Todos Due Date (Version 4)
-    if (oldVersion < 4) {
+    // Migration for Todos (Version 6)
+    if (oldVersion < 6) {
       try {
+        // Add columns if they don't exist
         await db.execute(
-          'ALTER TABLE $tableTodos ADD COLUMN dueDate TEXT NULL',
+          'ALTER TABLE $tableTodos ADD COLUMN progress REAL DEFAULT 0.0',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN priority INTEGER DEFAULT 0',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN orderIndex INTEGER DEFAULT 0',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN category TEXT DEFAULT "Tasks"',
         );
       } catch (e) {
-        // Ignore if column exists
-        debugPrint("Col dueDate likely exists or update failed: $e");
+        debugPrint("Migration to version 6 failed: $e");
+      }
+    }
+
+    // Migration for Todos (Version 7)
+    if (oldVersion < 7) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN reminderTime TEXT',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN repeatType TEXT DEFAULT "none"',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN isProgressTracked INTEGER DEFAULT 0',
+        );
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN progressType TEXT DEFAULT "percentage"',
+        );
+        await db.execute('ALTER TABLE $tableTodos ADD COLUMN startTime TEXT');
+        await db.execute(
+          'ALTER TABLE $tableTodos ADD COLUMN note TEXT DEFAULT ""',
+        );
+        await db.execute('ALTER TABLE $tableTodos ADD COLUMN subTasks TEXT');
+      } catch (e) {
+        debugPrint("Migration to version 7 failed: $e");
       }
     }
   }
@@ -85,7 +121,13 @@ CREATE TABLE sessions (
   category $textType,
   duration $integerType,
   timestamp $textType,
-  apps_limited_count $integerType
+  apps_limited_count $integerType,
+  work_duration $integerType,
+  revise_duration $integerType,
+  break_duration $integerType,
+  sessions_count $integerType,
+  is_revise_before $boolType,
+  note TEXT
   )
 ''');
 
@@ -95,7 +137,18 @@ CREATE TABLE $tableTodos (
   title $textType,
   isCompleted $boolType,
   createdTime $textType,
-  dueDate $textType
+  dueDate $textType,
+  progress REAL DEFAULT 0.0,
+  priority $integerType DEFAULT 0,
+  orderIndex $integerType DEFAULT 0,
+  category $textType DEFAULT "Tasks",
+  reminderTime TEXT,
+  repeatType TEXT DEFAULT "none",
+  isProgressTracked $boolType DEFAULT 0,
+  progressType TEXT DEFAULT "percentage",
+  startTime TEXT,
+  note TEXT DEFAULT "",
+  subTasks TEXT
   )
 ''');
   }
@@ -111,6 +164,12 @@ CREATE TABLE $tableTodos (
       duration: session.duration,
       timestamp: session.timestamp,
       appsLimitedCount: session.appsLimitedCount,
+      workDuration: session.workDuration,
+      reviseDuration: session.reviseDuration,
+      breakDuration: session.breakDuration,
+      sessionsCount: session.sessionsCount,
+      isReviseBefore: session.isReviseBefore,
+      note: session.note,
     );
   }
 
@@ -173,18 +232,14 @@ CREATE TABLE $tableTodos (
   Future<Todo> createTodo(Todo todo) async {
     final db = await instance.database;
     final id = await db.insert(tableTodos, todo.toMap());
+    changeNotifier.value++;
     return todo.copyWith(id: id);
   }
 
   Future<Todo> readTodo(int id) async {
     final db = await instance.database;
 
-    final maps = await db.query(
-      tableTodos,
-      columns: ['id', 'title', 'isCompleted', 'createdTime', 'dueDate'],
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query(tableTodos, where: 'id = ?', whereArgs: [id]);
 
     if (maps.isNotEmpty) {
       return Todo.fromMap(maps.first);
@@ -195,13 +250,9 @@ CREATE TABLE $tableTodos (
 
   Future<List<Todo>> readAllTodos() async {
     final db = await instance.database;
-    // Sort logic: Uncompleted first, then by Due Date (soonest first), then by Created Time
-    // CASE WHEN isCompleted = 0 THEN 0 ELSE 1 END -> Puts uncompleted (0) before completed (1)
-    // CASE WHEN dueDate IS NULL THEN 1 ELSE 0 END -> Puts tasks with due dates before those without
-    // dueDate ASC -> Soonest due dates first
-    // createdTime DESC -> Newest created first (fallback)
+    // Sort logic: Uncompleted first, then by orderIndex, then by priority (high first), then by Created Time
     final orderBy =
-        'isCompleted ASC, CASE WHEN dueDate IS NULL THEN 1 ELSE 0 END, dueDate ASC, createdTime DESC';
+        'isCompleted ASC, orderIndex ASC, priority DESC, createdTime DESC';
     final result = await db.query(tableTodos, orderBy: orderBy);
 
     return result.map((json) => Todo.fromMap(json)).toList();
@@ -224,27 +275,52 @@ CREATE TABLE $tableTodos (
   Future<int> updateTodo(Todo todo) async {
     final db = await instance.database;
 
-    return db.update(
+    final result = await db.update(
       tableTodos,
       todo.toMap(),
       where: 'id = ?',
       whereArgs: [todo.id],
     );
+    changeNotifier.value++;
+    return result;
+  }
+
+  Future<void> updateTodosBatch(List<Todo> todos) async {
+    final db = await instance.database;
+    final batch = db.batch();
+    for (var todo in todos) {
+      batch.update(
+        tableTodos,
+        todo.toMap(),
+        where: 'id = ?',
+        whereArgs: [todo.id],
+      );
+    }
+    await batch.commit(noResult: true);
+    changeNotifier.value++;
   }
 
   Future<int> deleteTodo(int id) async {
     final db = await instance.database;
 
-    return await db.delete(tableTodos, where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete(
+      tableTodos,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    changeNotifier.value++;
+    return result;
   }
 
   Future<int> deleteCompletedTodos() async {
     final db = await instance.database;
-    return await db.delete(
+    final result = await db.delete(
       tableTodos,
       where: 'isCompleted = ?',
       whereArgs: [1],
     );
+    changeNotifier.value++;
+    return result;
   }
 
   Future<void> close() async {
