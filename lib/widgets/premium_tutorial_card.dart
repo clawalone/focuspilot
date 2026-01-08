@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_theme.dart';
 
 class PremiumTutorialCard extends StatefulWidget {
   final String title;
@@ -70,19 +71,21 @@ class _PremiumTutorialCardState extends State<PremiumTutorialCard>
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (isDark ? Colors.black : Colors.white).withOpacity(
-                  0.1,
-                ), // Glass effect
+                color: isDark
+                    ? AppTheme.statsCardBackground.withOpacity(0.7)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.05),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -96,7 +99,7 @@ class _PremiumTutorialCardState extends State<PremiumTutorialCard>
                     style: GoogleFonts.outfit(
                       textStyle: Theme.of(context).textTheme.titleLarge
                           ?.copyWith(
-                            color: Colors.white,
+                            color: isDark ? Colors.white : Colors.black,
                             fontWeight: FontWeight.bold,
                             fontSize: 24,
                           ),
@@ -109,7 +112,9 @@ class _PremiumTutorialCardState extends State<PremiumTutorialCard>
                     style: GoogleFonts.inter(
                       textStyle: Theme.of(context).textTheme.bodyMedium
                           ?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: isDark
+                                ? Colors.white.withOpacity(0.9)
+                                : Colors.black87,
                             fontSize: 16,
                             height: 1.5,
                           ),
@@ -126,7 +131,9 @@ class _PremiumTutorialCardState extends State<PremiumTutorialCard>
                           child: Text(
                             "Skip",
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.6)
+                                  : Colors.black54,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -136,8 +143,12 @@ class _PremiumTutorialCardState extends State<PremiumTutorialCard>
                         ElevatedButton(
                           onPressed: widget.onNext,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                            backgroundColor: isDark
+                                ? Colors.white
+                                : AppTheme.primaryColor,
+                            foregroundColor: isDark
+                                ? Colors.black
+                                : Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
