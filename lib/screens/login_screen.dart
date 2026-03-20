@@ -163,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             SizedBox(width: 12),
                             Text(
-                              'FocusPilot',
+                              'MindFlux',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,

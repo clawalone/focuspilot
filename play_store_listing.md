@@ -1,4 +1,4 @@
-# Play Store Listing for FocusPilot
+# Play Store Listing for MindFlux
 
 ## Short Description (Max 80 Characters)
 Boost productivity with a focus timer, app blocker, and daily planner.
@@ -9,17 +9,17 @@ Boost productivity with a focus timer, app blocker, and daily planner.
 
 ## Full Description
 
-**Take control of your time and achieve your goals with FocusPilot – usage tracker, app blocker, and productivity timer.**
+**Take control of your time and achieve your goals with MindFlux – usage tracker, app blocker, and productivity timer.**
 
-Do you find yourself scrolling through social media when you should be working? Struggling to maintain focus during study sessions? FocusPilot is designed to help you eliminate distractions and build lasting productive habits.
+Do you find yourself scrolling through social media when you should be working? Struggling to maintain focus during study sessions? MindFlux is designed to help you eliminate distractions and build lasting productive habits.
 
-Combined with a beautiful, premium design and powerful tracking tools, FocusPilot is your ultimate companion for deep work and digital wellbeing.
+Combined with a beautiful, premium design and powerful tracking tools, MindFlux is your ultimate companion for deep work and digital wellbeing.
 
 ### 🚀 Key Features
 
 **🛡️ Powerful App Blocker**
 *   **Eliminate Distractions:** Select distracting apps to block instantly while you focus.
-*   **Strict Mode:** Once a session starts, you can’t open blocked apps until the timer finishes.
+*   **Strict Mode:** Once a session starts, you can't open blocked apps until the timer finishes.
 *   **Digital Wellbeing:** Regain control over your screen time by limiting access to time-wasting applications.
 
 **⏱️ Advanced Focus Timer**
@@ -41,10 +41,10 @@ Combined with a beautiful, premium design and powerful tracking tools, FocusPilo
 *   **Dark Mode:** Easy on the eyes for late-night study sessions.
 *   **Smooth Animations:** A fluid, glassmorphic interface that makes productivity feel premium.
 
-### Who is FocusPilot for?
+### Who is MindFlux for?
 *   **Students** needing to focus on exams and homework.
 *   **Professionals** wanting to maximize deep work blocks.
 *   **Anyone** with ADHD or focus challenges looking for a clean, distraction-free environment.
 *   **You**, ready to escape the scrolling loop and get things done.
 
-**Download FocusPilot today and turn your time into accomplishment!**
+**Download MindFlux today and turn your time into accomplishment!**

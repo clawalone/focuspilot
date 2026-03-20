@@ -1,14 +1,14 @@
-# FocusPilot
+# MindFlux
 
 **Master your time. Block distractions, track tasks, and stay focused.**
 
-FocusPilot is designed to help you eliminate distractions and build lasting productive habits. Combined with a beautiful, premium design and powerful tracking tools, it is your ultimate companion for deep work and digital wellbeing.
+MindFlux is designed to help you eliminate distractions and build lasting productive habits. Combined with a beautiful, premium design and powerful tracking tools, it is your ultimate companion for deep work and digital wellbeing.
 
 ## 🚀 Key Features
 
 ### 🛡️ Powerful App Blocker
 *   **Eliminate Distractions:** Select distracting apps to block instantly while you focus.
-*   **Strict Mode:** Once a session starts, you can’t open blocked apps until the timer finishes.
+*   **Strict Mode:** Once a session starts, you can't open blocked apps until the timer finishes.
 *   **Digital Wellbeing:** Regain control over your screen time by limiting access to time-wasting applications.
 
 ### ⏱️ Advanced Focus Timer
@@ -44,8 +44,8 @@ To build and run this project, you need:
 
 1.  **Clone the Repository**
     ```bash
-    git clone https://github.com/clawalone/focuspilot.git
-    cd focuspilot
+    git clone https://github.com/clawalone/mindflux.git
+    cd mindflux
     ```
 
 2.  **Install Dependencies**
@@ -61,7 +61,7 @@ To build and run this project, you need:
 
 ## 📱 Download
 
-FocusPilot is coming soon to the Google Play Store!
+MindFlux is coming soon to the Google Play Store!
 *(Link will be updated here once live)*
 
 ## 🤝 Contributing

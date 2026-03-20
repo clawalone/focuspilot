@@ -367,7 +367,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'Note for Xiaomi/Poco users: Set FocusPilot to "No restrictions" in App info > Battery saver and enable "Autostart" if available.',
+                          'Note for Xiaomi/Poco users: Set MindFlux to "No restrictions" in App info > Battery saver and enable "Autostart" if available.',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey,

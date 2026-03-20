@@ -43,7 +43,7 @@ class MainActivity: FlutterActivity() {
                 removeBlockingOverlay()
                 result.success(null)
             } else if (call.method == "bringAppToFront") {
-                android.util.Log.d("FocusPilot", "bringAppToFront called")
+                android.util.Log.d("MindFlux", "bringAppToFront called")
                 
                 val launchIntent = applicationContext.packageManager.getLaunchIntentForPackage(packageName)
                 if (launchIntent != null) {
@@ -51,7 +51,7 @@ class MainActivity: FlutterActivity() {
                     try {
                         applicationContext.startActivity(launchIntent)
                     } catch (e: Exception) {
-                        android.util.Log.e("FocusPilot", "Failed to start activity: ${e.message}")
+                        android.util.Log.e("MindFlux", "Failed to start activity: ${e.message}")
                     }
                     
                     try {
@@ -113,7 +113,7 @@ class MainActivity: FlutterActivity() {
         content.addView(title)
 
         val subtitle = TextView(applicationContext)
-        subtitle.text = "Returning you to FocusFlow..."
+        subtitle.text = "Returning you to MindFlux..."
         subtitle.setTextColor(Color.parseColor("#888888"))
         subtitle.textSize = 16f
         subtitle.setPadding(0, 0, 0, 80)
@@ -121,7 +121,7 @@ class MainActivity: FlutterActivity() {
         content.addView(subtitle)
 
         val button = Button(applicationContext)
-        button.text = "RETURN TO FOCUSFLOW"
+        button.text = "RETURN TO MINDFLUX"
         button.setBackgroundColor(Color.parseColor("#4DB6AC")) // Teal primary color
         button.setTextColor(Color.WHITE)
         button.setPadding(40, 20, 40, 20)

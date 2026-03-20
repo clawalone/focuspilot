@@ -41,13 +41,13 @@ class AnimatedBackground extends StatelessWidget {
                   .move(
                     begin: const Offset(0, 0),
                     end: const Offset(-50, 40),
-                    duration: 10.seconds,
+                    duration: 5.seconds,
                     curve: Curves.easeInOut,
                   )
                   .scale(
                     begin: const Offset(1, 1),
                     end: const Offset(1.2, 1.2),
-                    duration: 12.seconds,
+                    duration: 6.seconds,
                     curve: Curves.easeInOut,
                   ),
         ),
@@ -74,13 +74,13 @@ class AnimatedBackground extends StatelessWidget {
                   .move(
                     begin: const Offset(0, 0),
                     end: const Offset(40, -50),
-                    duration: 12.seconds,
+                    duration: 6.seconds,
                     curve: Curves.easeInOut,
                   )
                   .scale(
                     begin: const Offset(1, 1),
                     end: const Offset(1.1, 1.1),
-                    duration: 14.seconds,
+                    duration: 7.seconds,
                     curve: Curves.easeInOut,
                   ),
         ),
@@ -105,7 +105,7 @@ class AnimatedBackground extends StatelessWidget {
                   .move(
                     begin: const Offset(0, 0),
                     end: const Offset(30, 30),
-                    duration: 15.seconds,
+                    duration: 8.seconds,
                     curve: Curves.easeInOut,
                   ),
         ),

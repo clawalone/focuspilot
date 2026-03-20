@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/database_service.dart';
 import '../models/session.dart';
@@ -509,134 +510,169 @@ class _StatsScreenState extends State<StatsScreen>
   }
 
   Widget _buildWeeklyChart(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (isDark) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.statsCardBackground.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: _buildChartContent(theme),
+          ),
+        ),
+      );
+    }
+
     return Container(
       height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: true,
-            horizontalInterval: 60,
-            verticalInterval: 1,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: theme.dividerColor.withOpacity(0.5),
-                strokeWidth: 1,
-              );
-            },
-            getDrawingVerticalLine: (value) {
-              return FlLine(
-                color: theme.dividerColor.withOpacity(0.5),
-                strokeWidth: 1,
-              );
-            },
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-                  int index = value.toInt();
-                  if (index >= 0 && index < days.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        days[index],
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                        ),
+      child: _buildChartContent(theme),
+    );
+  }
+
+  Widget _buildChartContent(ThemeData theme) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          horizontalInterval: 60,
+          verticalInterval: 1,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.5),
+              strokeWidth: 1,
+            );
+          },
+          getDrawingVerticalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.5),
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: 1,
+              getTitlesWidget: (value, meta) {
+                const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                int index = value.toInt();
+                if (index >= 0 && index < days.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      days[index],
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
                       ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: 60,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: Colors.grey,
                     ),
                   );
-                },
-                reservedSize: 42,
-              ),
-            ),
-          ),
-          borderData: FlBorderData(
-            show: true,
-            border: Border(
-              bottom: BorderSide(color: theme.dividerColor, width: 2),
-              left: BorderSide(color: theme.dividerColor, width: 2),
-              top: const BorderSide(color: Colors.transparent),
-              right: const BorderSide(color: Colors.transparent),
-            ),
-          ),
-          minX: 0,
-          maxX: 6,
-          minY: 0,
-          maxY:
-              240, // Fixed maxY or dynamic? Keeping 240 for consistency with "Goal"
-          lineBarsData: [
-            LineChartBarData(
-              spots: List.generate(7, (index) {
-                final date = DateTime.now().subtract(Duration(days: 6 - index));
-                int minutes = 0;
-                for (var s in _sessions) {
-                  if (s.timestamp.year == date.year &&
-                      s.timestamp.month == date.month &&
-                      s.timestamp.day == date.day) {
-                    minutes += s.duration ~/ 60;
-                  }
                 }
-                return FlSpot(index.toDouble(), minutes.toDouble());
-              }),
-              isCurved: false,
-              color: const Color(0xFF4DB6AC), // Teal color from image
-              barWidth: 4,
-              isStrokeCapRound: true,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 6,
-                    color: theme.cardColor, // Hollow (white/dark bg)
-                    strokeWidth: 3,
-                    strokeColor: const Color(0xFF4DB6AC),
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(show: false),
+                return const SizedBox.shrink();
+              },
             ),
-          ],
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 60,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.grey,
+                  ),
+                );
+              },
+              reservedSize: 42,
+            ),
+          ),
         ),
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
+        borderData: FlBorderData(
+          show: true,
+          border: Border(
+            bottom: BorderSide(color: theme.dividerColor, width: 2),
+            left: BorderSide(color: theme.dividerColor, width: 2),
+            top: const BorderSide(color: Colors.transparent),
+            right: const BorderSide(color: Colors.transparent),
+          ),
+        ),
+        minX: 0,
+        maxX: 6,
+        minY: 0,
+        maxY:
+            240, // Fixed maxY or dynamic? Keeping 240 for consistency with "Goal"
+        lineBarsData: [
+          LineChartBarData(
+            spots: List.generate(7, (index) {
+              final date = DateTime.now().subtract(Duration(days: 6 - index));
+              int minutes = 0;
+              for (var s in _sessions) {
+                if (s.timestamp.year == date.year &&
+                    s.timestamp.month == date.month &&
+                    s.timestamp.day == date.day) {
+                  minutes += s.duration ~/ 60;
+                }
+              }
+              return FlSpot(index.toDouble(), minutes.toDouble());
+            }),
+            isCurved: false,
+            color: const Color(0xFF4DB6AC), // Teal color from image
+            barWidth: 4,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 6,
+                  color: theme.cardColor, // Hollow (white/dark bg)
+                  strokeWidth: 3,
+                  strokeColor: const Color(0xFF4DB6AC),
+                );
+              },
+            ),
+            belowBarData: BarAreaData(show: false),
+          ),
+        ],
       ),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -651,113 +687,132 @@ class _StatsScreenState extends State<StatsScreen>
     String? suffix,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+    final content = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.statsCardBackground.withOpacity(0.7)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: isDark
+            ? Border.all(color: Colors.white.withOpacity(0.1), width: 1)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: isDark ? 16 : 15,
+            offset: isDark ? const Offset(0, 4) : const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                if (onTap != null)
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.4),
-                    size: 16,
-                  ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                isTime
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          _Countup(
-                            value: value ~/ 60,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                          Text(
-                            'h ',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          _Countup(
-                            value: value % 60,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                          Text(
-                            'm',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          _Countup(
-                            value: value,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                          if (suffix != null)
-                            Text(
-                              suffix,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 24,
-                              ),
-                            ),
-                        ],
-                      ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.4),
+                  size: 16,
                 ),
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              isTime
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        _Countup(
+                          value: value ~/ 60,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        Text(
+                          'h ',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        _Countup(
+                          value: value % 60,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        Text(
+                          'm',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        _Countup(
+                          value: value,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        if (suffix != null)
+                          Text(
+                            suffix,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                            ),
+                          ),
+                      ],
+                    ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+
+    if (isDark) {
+      return GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: content,
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(onTap: onTap, child: content);
   }
 
   Widget _buildNewBadgeCard(ThemeData theme, BadgeData badge, int delay) {

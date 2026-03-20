@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -305,6 +306,7 @@ class _CalendarScreenState extends State<CalendarScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -358,164 +360,398 @@ class _CalendarScreenState extends State<CalendarScreen>
                               const SizedBox(height: 32),
 
                               // Calendar Card
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surface,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                padding: const EdgeInsets.all(16),
-                                child: TableCalendar(
-                                  firstDay: DateTime.utc(2020, 1, 1),
-                                  lastDay: DateTime.utc(2030, 12, 31),
-                                  focusedDay: _focusedDay,
-                                  calendarFormat: _calendarFormat,
-                                  selectedDayPredicate: (day) =>
-                                      isSameDay(_selectedDay, day),
-                                  onDaySelected: _onDaySelected,
-                                  onFormatChanged: (format) {
-                                    setState(() {
-                                      _calendarFormat = format;
-                                    });
-                                  },
-                                  eventLoader: _getEventsForDay,
-                                  calendarStyle: CalendarStyle(
-                                    outsideDaysVisible: false,
-                                    todayDecoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(
-                                        0.3,
-                                      ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    selectedDecoration: const BoxDecoration(
-                                      color: Colors
-                                          .transparent, // Handled in builder
-                                    ),
-                                    markerDecoration: const BoxDecoration(
-                                      color: Colors
-                                          .transparent, // Handled in builder
-                                    ),
-                                  ),
-                                  headerStyle: HeaderStyle(
-                                    formatButtonVisible: false,
-                                    titleCentered: true,
-                                    titleTextStyle: theme.textTheme.titleMedium!
-                                        .copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
+                              // Calendar Card
+                              isDark
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(24),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 12,
+                                          sigmaY: 12,
                                         ),
-                                    leftChevronIcon: Icon(
-                                      Icons.chevron_left,
-                                      color: theme.iconTheme.color,
-                                    ),
-                                    rightChevronIcon: Icon(
-                                      Icons.chevron_right,
-                                      color: theme.iconTheme.color,
-                                    ),
-                                  ),
-                                  // Custom Builders for Heatmap/Markers
-                                  calendarBuilders: CalendarBuilders(
-                                    selectedBuilder: (context, date, events) {
-                                      return Container(
-                                        margin: const EdgeInsets.all(4),
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryColor,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppTheme.primaryColor
-                                                  .withOpacity(0.4),
-                                              blurRadius: 8,
-                                              spreadRadius: 2,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.statsCardBackground
+                                                .withOpacity(0.7),
+                                            borderRadius: BorderRadius.circular(
+                                              24,
                                             ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          '${date.day}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              width: 1,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.2,
+                                                ),
+                                                blurRadius: 16,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      );
-                                    },
-                                    markerBuilder: (context, date, events) {
-                                      if (events.isEmpty) return null;
-
-                                      return Positioned(
-                                        bottom: 2,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: events.map((event) {
-                                              final map =
-                                                  event as Map<String, dynamic>;
-                                              final type =
-                                                  map['type'] as String;
-                                              final value = map['value'] as int;
-
-                                              if (type == 'session') {
-                                                // Session Heatmap Dot
-                                                Color color;
-                                                if (value > 120) {
-                                                  color = Colors.redAccent;
-                                                } else if (value > 60) {
-                                                  color = Colors.deepPurple;
-                                                } else if (value > 30) {
-                                                  color = Colors.blue;
-                                                } else {
-                                                  color = Colors.green;
-                                                }
-                                                return Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 1.5,
-                                                      ),
-                                                  width: 6,
-                                                  height: 6,
-                                                  decoration: BoxDecoration(
-                                                    color: color,
-                                                    shape: BoxShape.circle,
+                                          padding: const EdgeInsets.all(16),
+                                          child: TableCalendar(
+                                            firstDay: DateTime.utc(2020, 1, 1),
+                                            lastDay: DateTime.utc(2030, 12, 31),
+                                            focusedDay: _focusedDay,
+                                            calendarFormat: _calendarFormat,
+                                            selectedDayPredicate: (day) =>
+                                                isSameDay(_selectedDay, day),
+                                            onDaySelected: _onDaySelected,
+                                            onFormatChanged: (format) {
+                                              setState(() {
+                                                _calendarFormat = format;
+                                              });
+                                            },
+                                            eventLoader: _getEventsForDay,
+                                            calendarStyle: CalendarStyle(
+                                              outsideDaysVisible: false,
+                                              todayDecoration: BoxDecoration(
+                                                color: AppTheme.primaryColor
+                                                    .withOpacity(0.3),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              selectedDecoration:
+                                                  const BoxDecoration(
+                                                    color: Colors
+                                                        .transparent, // Handled in builder
                                                   ),
-                                                );
-                                              } else {
-                                                // Task Dot (Orange)
-                                                return Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 1.5,
+                                              markerDecoration: const BoxDecoration(
+                                                color: Colors
+                                                    .transparent, // Handled in builder
+                                              ),
+                                            ),
+                                            headerStyle: HeaderStyle(
+                                              formatButtonVisible: false,
+                                              titleCentered: true,
+                                              titleTextStyle: theme
+                                                  .textTheme
+                                                  .titleMedium!
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                  ),
+                                              leftChevronIcon: Icon(
+                                                Icons.chevron_left,
+                                                color: theme.iconTheme.color,
+                                              ),
+                                              rightChevronIcon: Icon(
+                                                Icons.chevron_right,
+                                                color: theme.iconTheme.color,
+                                              ),
+                                            ),
+                                            // Custom Builders for Heatmap/Markers
+                                            calendarBuilders: CalendarBuilders(
+                                              selectedBuilder:
+                                                  (context, date, events) {
+                                                    return Container(
+                                                      margin:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme
+                                                            .primaryColor,
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: AppTheme
+                                                                .primaryColor
+                                                                .withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                            blurRadius: 8,
+                                                            spreadRadius: 2,
+                                                          ),
+                                                        ],
                                                       ),
-                                                  width: 6,
-                                                  height: 6,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.orange,
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color: theme
-                                                          .colorScheme
-                                                          .surface,
-                                                      width: 1,
+                                                      child: Text(
+                                                        '${date.day}',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                              markerBuilder: (context, date, events) {
+                                                if (events.isEmpty) return null;
+
+                                                return Positioned(
+                                                  bottom: 2,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: events.map((
+                                                        event,
+                                                      ) {
+                                                        final map =
+                                                            event
+                                                                as Map<
+                                                                  String,
+                                                                  dynamic
+                                                                >;
+                                                        final type =
+                                                            map['type']
+                                                                as String;
+                                                        final value =
+                                                            map['value'] as int;
+
+                                                        if (type == 'session') {
+                                                          // Session Heatmap Dot
+                                                          Color color;
+                                                          if (value > 120) {
+                                                            color = Colors
+                                                                .redAccent;
+                                                          } else if (value >
+                                                              60) {
+                                                            color = Colors
+                                                                .deepPurple;
+                                                          } else if (value >
+                                                              30) {
+                                                            color = Colors.blue;
+                                                          } else {
+                                                            color =
+                                                                Colors.green;
+                                                          }
+                                                          return Container(
+                                                            margin:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      1.5,
+                                                                ),
+                                                            width: 6,
+                                                            height: 6,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: color,
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                          );
+                                                        } else {
+                                                          // Task Dot (Orange)
+                                                          return Container(
+                                                            margin:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      1.5,
+                                                                ),
+                                                            width: 6,
+                                                            height: 6,
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  Colors.orange,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .surface,
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        }
+                                                      }).toList(),
                                                     ),
                                                   ),
                                                 );
-                                              }
-                                            }).toList(),
+                                              },
+                                            ),
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
+                                      ),
+                                    )
+                                  : Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(24),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.05,
+                                            ),
+                                            blurRadius: 15,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      padding: const EdgeInsets.all(16),
+                                      child: TableCalendar(
+                                        firstDay: DateTime.utc(2020, 1, 1),
+                                        lastDay: DateTime.utc(2030, 12, 31),
+                                        focusedDay: _focusedDay,
+                                        calendarFormat: _calendarFormat,
+                                        selectedDayPredicate: (day) =>
+                                            isSameDay(_selectedDay, day),
+                                        onDaySelected: _onDaySelected,
+                                        onFormatChanged: (format) {
+                                          setState(() {
+                                            _calendarFormat = format;
+                                          });
+                                        },
+                                        eventLoader: _getEventsForDay,
+                                        calendarStyle: CalendarStyle(
+                                          outsideDaysVisible: false,
+                                          todayDecoration: BoxDecoration(
+                                            color: AppTheme.primaryColor
+                                                .withOpacity(0.3),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          selectedDecoration: const BoxDecoration(
+                                            color: Colors
+                                                .transparent, // Handled in builder
+                                          ),
+                                          markerDecoration: const BoxDecoration(
+                                            color: Colors
+                                                .transparent, // Handled in builder
+                                          ),
+                                        ),
+                                        headerStyle: HeaderStyle(
+                                          formatButtonVisible: false,
+                                          titleCentered: true,
+                                          titleTextStyle: theme
+                                              .textTheme
+                                              .titleMedium!
+                                              .copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                              ),
+                                          leftChevronIcon: Icon(
+                                            Icons.chevron_left,
+                                            color: theme.iconTheme.color,
+                                          ),
+                                          rightChevronIcon: Icon(
+                                            Icons.chevron_right,
+                                            color: theme.iconTheme.color,
+                                          ),
+                                        ),
+                                        // Custom Builders for Heatmap/Markers
+                                        calendarBuilders: CalendarBuilders(
+                                          selectedBuilder:
+                                              (context, date, events) {
+                                                return Container(
+                                                  margin: const EdgeInsets.all(
+                                                    4,
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        AppTheme.primaryColor,
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: AppTheme
+                                                            .primaryColor
+                                                            .withOpacity(0.4),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Text(
+                                                    '${date.day}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                          markerBuilder: (context, date, events) {
+                                            if (events.isEmpty) return null;
+
+                                            return Positioned(
+                                              bottom: 2,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: events.map((event) {
+                                                    final map =
+                                                        event
+                                                            as Map<
+                                                              String,
+                                                              dynamic
+                                                            >;
+                                                    final type =
+                                                        map['type'] as String;
+                                                    final value =
+                                                        map['value'] as int;
+
+                                                    if (type == 'session') {
+                                                      // Session Heatmap Dot
+                                                      Color color;
+                                                      if (value > 120) {
+                                                        color =
+                                                            Colors.redAccent;
+                                                      } else if (value > 60) {
+                                                        color =
+                                                            Colors.deepPurple;
+                                                      } else if (value > 30) {
+                                                        color = Colors.blue;
+                                                      } else {
+                                                        color = Colors.green;
+                                                      }
+                                                      return Container(
+                                                        margin:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 1.5,
+                                                            ),
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color: color,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      );
+                                                    } else {
+                                                      // Task Dot (Orange)
+                                                      return Container(
+                                                        margin:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 1.5,
+                                                            ),
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color:
+                                                                  Colors.orange,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .surface,
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                      );
+                                                    }
+                                                  }).toList(),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
                               const SizedBox(height: 32),
 
                               // Selected Day Header
@@ -533,141 +769,210 @@ class _CalendarScreenState extends State<CalendarScreen>
 
                               // Session List (Glassmorphism)
                               if (_selectedDaySessions.isEmpty)
-                                Container(
-                                  padding: const EdgeInsets.all(24),
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surface
-                                        .withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.grey.withOpacity(0.1),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Icon(
-                                        Icons.calendar_today_outlined,
-                                        size: 48,
-                                        color: Colors.grey.withOpacity(0.3),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'No sessions for this day',
-                                        style: theme.textTheme.bodyLarge
-                                            ?.copyWith(color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                ..._selectedDaySessions
-                                    .map(
-                                      (session) => Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
+                                isDark
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 12,
+                                            sigmaY: 12,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(24),
+                                            width: double.infinity,
+                                            decoration: BoxDecoration(
+                                              color: AppTheme
+                                                  .statsCardBackground
+                                                  .withOpacity(0.7),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: Colors.white.withOpacity(
+                                                  0.1,
+                                                ),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Icon(
+                                                  Icons.calendar_today_outlined,
+                                                  size: 48,
+                                                  color: Colors.grey
+                                                      .withOpacity(0.3),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  'No sessions for this day',
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodyLarge
+                                                      ?.copyWith(
+                                                        color: Colors.grey,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                        padding: const EdgeInsets.all(16),
+                                      )
+                                    : Container(
+                                        padding: const EdgeInsets.all(24),
+                                        width: double.infinity,
                                         decoration: BoxDecoration(
-                                          color: theme.colorScheme.surface,
+                                          color: Colors.white,
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
+                                          border: Border.all(
+                                            color: Colors.grey.withOpacity(0.1),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today_outlined,
+                                              size: 48,
+                                              color: Colors.grey.withOpacity(
+                                                0.3,
                                               ),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'No sessions for this day',
+                                              style: theme.textTheme.bodyLarge
+                                                  ?.copyWith(
+                                                    color: Colors.grey,
+                                                  ),
                                             ),
                                           ],
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    AppTheme.primaryColor
-                                                        .withOpacity(0.2),
-                                                    AppTheme.primaryColor
-                                                        .withOpacity(0.05),
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                shape: BoxShape.circle,
+                                      )
+                              else
+                                ..._selectedDaySessions.map((session) {
+                                  final content = Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? AppTheme.statsCardBackground
+                                                .withOpacity(0.7)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: isDark
+                                          ? Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
                                               ),
-                                              child: Icon(
-                                                Icons.check_circle_outline,
-                                                color: AppTheme.primaryColor,
-                                                size: 20,
+                                              width: 1,
+                                            )
+                                          : Border.all(
+                                              color: Colors.grey.withOpacity(
+                                                0.1,
                                               ),
+                                              width: 1,
                                             ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    session.category,
-                                                    style: theme
-                                                        .textTheme
-                                                        .bodyLarge
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                  ),
-                                                  Text(
-                                                    DateFormat(
-                                                      'h:mm a',
-                                                    ).format(session.timestamp),
-                                                    style: theme
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                          color: Colors.grey,
-                                                        ),
-                                                  ),
-                                                ],
-                                              ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: isDark
+                                              ? Colors.black.withOpacity(0.2)
+                                              : Colors.black.withOpacity(0.05),
+                                          blurRadius: isDark ? 16 : 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                AppTheme.primaryColor
+                                                    .withOpacity(0.2),
+                                                AppTheme.primaryColor
+                                                    .withOpacity(0.05),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
                                             ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    theme.brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.white10
-                                                    : Colors.grey.shade100,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                '${session.duration ~/ 60}m',
-                                                style: theme
-                                                    .textTheme
-                                                    .titleMedium
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.check_circle_outline,
+                                            color: AppTheme.primaryColor,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                session.category,
+                                                style: theme.textTheme.bodyLarge
                                                     ?.copyWith(
                                                       fontWeight:
                                                           FontWeight.bold,
-                                                      fontSize: 14,
                                                     ),
                                               ),
-                                            ),
-                                          ],
+                                              Text(
+                                                DateFormat(
+                                                  'h:mm a',
+                                                ).format(session.timestamp),
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      color: Colors.grey,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                theme.brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white10
+                                                : Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${session.duration ~/ 60}m',
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (isDark) {
+                                    return ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 12,
+                                          sigmaY: 12,
+                                        ),
+                                        child: content,
                                       ),
-                                    )
-                                    .toList(),
+                                    );
+                                  }
+                                  return content;
+                                }).toList(),
 
                               if (_selectedDayTodos.isNotEmpty) ...[
                                 const SizedBox(height: 32),
@@ -828,15 +1133,23 @@ class _CalendarScreenState extends State<CalendarScreen>
     String? subtitle,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: isDark
+            ? AppTheme.statsCardBackground.withOpacity(0.7)
+            : Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: isDark
+            ? Border.all(color: Colors.white.withOpacity(0.1), width: 1)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -885,5 +1198,16 @@ class _CalendarScreenState extends State<CalendarScreen>
         ],
       ),
     );
+
+    if (isDark) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }

@@ -31,7 +31,7 @@ class _HomeHeaderState extends State<HomeHeader> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'FocusPilot',
+              'MindFlux',
               style: GoogleFonts.grandHotel(
                 textStyle: theme.textTheme.displaySmall?.copyWith(
                   color: isDark ? Colors.white : Colors.black87,
