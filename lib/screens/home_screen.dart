@@ -177,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
             align: ContentAlign.bottom,
             builder: (context, controller) {
               return PremiumTutorialCard(
-                title: "Welcome to FocusPilot! ✈️",
+                title: "Welcome to MindFlux! 🧠",
                 description:
                     "Your personal cockpit for productivity.\nLet's take a quick flight check.",
                 onNext: () => _tutorialCoachMark.next(),
@@ -290,6 +290,52 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final navRow = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildNavIcon(
+          context,
+          icon: CupertinoIcons.home,
+          isActive: true, // Always active on Home
+          onTap: () {}, // No-op on home
+        ),
+        _buildNavIcon(
+          context,
+          icon: CupertinoIcons.list_bullet,
+          key: _tasksTabKey,
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TodoListScreen()),
+            );
+            _loadData(); // Refresh in case tasks were completed (though less critical for these cards)
+          },
+        ),
+        _buildNavIcon(
+          context,
+          icon: CupertinoIcons.graph_square,
+          key: _statsTabKey,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const StatsScreen()),
+            );
+          },
+        ),
+        _buildNavIcon(
+          context,
+          icon: CupertinoIcons.settings,
+          key: _settingsTabKey,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+          },
+        ),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -455,83 +501,39 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(37.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.15),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: isDark
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: isDark ? 16 : 15,
+              offset: isDark ? const Offset(0, 4) : const Offset(0, 8),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(37.5),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF2D2D44).withOpacity(0.85)
-                    : Colors.white.withOpacity(0.85),
+        child: isDark
+            ? ClipRRect(
                 borderRadius: BorderRadius.circular(37.5),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white12
-                      : Colors.white.withOpacity(0.2),
-                  width: 0.5,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.statsCardBackground.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(37.5),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: navRow,
+                  ),
                 ),
+              )
+            : Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(37.5),
+                ),
+                child: navRow,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavIcon(
-                    context,
-                    icon: CupertinoIcons.home,
-                    isActive: true, // Always active on Home
-                    onTap: () {}, // No-op on home
-                  ),
-                  _buildNavIcon(
-                    context,
-                    icon: CupertinoIcons.list_bullet,
-                    key: _tasksTabKey,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TodoListScreen(),
-                        ),
-                      );
-                      _loadData(); // Refresh in case tasks were completed (though less critical for these cards)
-                    },
-                  ),
-                  _buildNavIcon(
-                    context,
-                    icon: CupertinoIcons.graph_square,
-                    key: _statsTabKey,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StatsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildNavIcon(
-                    context,
-                    icon: CupertinoIcons.settings,
-                    key: _settingsTabKey,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

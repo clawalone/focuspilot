@@ -122,7 +122,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AppService()),
         ChangeNotifierProvider(create: (_) => AuthService()),
       ],
-      child: const FocusPilotApp(),
+      child: const MindFluxApp(),
     ),
   );
 }
@@ -133,8 +133,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Global theme notifier
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
-class FocusPilotApp extends StatelessWidget {
-  const FocusPilotApp({super.key});
+class MindFluxApp extends StatelessWidget {
+  const MindFluxApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +145,7 @@ class FocusPilotApp extends StatelessWidget {
       builder: (context, currentMode, child) {
         return MaterialApp(
           navigatorKey: navigatorKey,
-          title: 'FocusPilot',
+          title: 'MindFlux',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,

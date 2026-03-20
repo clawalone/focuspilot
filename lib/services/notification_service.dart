@@ -56,7 +56,7 @@ class NotificationService {
 
     const AndroidNotificationChannel channelV6 = AndroidNotificationChannel(
       'focus_alerts_v6',
-      'FocusPilot Alerts (v6)',
+      'MindFlux Alerts (v6)',
       description: 'Critical system-level reminders',
       importance: Importance.max,
       playSound: true,
@@ -102,7 +102,7 @@ class NotificationService {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'focus_alerts_v6',
-          'FocusPilot Alerts (v6)',
+          'MindFlux Alerts (v6)',
           channelDescription: 'Critical system-level reminders',
           importance: Importance.max,
           priority: Priority.max,

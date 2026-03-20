@@ -17,7 +17,7 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('focusflow.db');
+    _database = await _initDB('mindflux.db');
     return _database!;
   }
 

@@ -204,15 +204,15 @@ class _TimerScreenState extends State<TimerScreen>
     if (!dndGranted) {
       title = 'Do Not Disturb Access';
       message =
-          'FocusPilot needs Do Not Disturb access to silence notifications.';
+          'MindFlux needs Do Not Disturb access to silence notifications.';
       onGrant = () async => await _dndService.requestPermission();
     } else if (!usageGranted) {
       title = 'Usage Access';
-      message = 'FocusPilot needs Usage Access to detect if you open apps.';
+      message = 'MindFlux needs Usage Access to detect if you open apps.';
       onGrant = () async => await _permissionService.requestUsagePermission();
     } else if (!overlayGranted) {
       title = 'Overlay Permission';
-      message = 'FocusPilot needs Overlay permission to block apps.';
+      message = 'MindFlux needs Overlay permission to block apps.';
       onGrant = () async => await _permissionService.requestOverlayPermission();
     }
 
@@ -271,7 +271,7 @@ class _TimerScreenState extends State<TimerScreen>
     try {
       const androidConfig = FlutterBackgroundAndroidConfig(
         notificationTitle: 'Focus Session Running',
-        notificationText: 'FocusPilot is keeping you on track.',
+        notificationText: 'MindFlux is keeping you on track.',
         notificationImportance: AndroidNotificationImportance.normal,
         notificationIcon: AndroidResource(
           name: 'ic_launcher',
